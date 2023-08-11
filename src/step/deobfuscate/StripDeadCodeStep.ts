@@ -3,9 +3,6 @@ import LuaIdentifier from '@/ast/Expression/LuaIdentifier'
 import LuaBase, { ICodeBlock } from '@/ast/LuaBase'
 import LuaScope from '@/ast/LuaScope'
 import LuaState from '@/ast/LuaState'
-import LuaElseClause from '@/ast/Node/LuaElseClause'
-import LuaElseifClause from '@/ast/Node/LuaElseifClause'
-import LuaIfClause from '@/ast/Node/LuaIfClause'
 import LuaAssignmentStatement from '@/ast/Statement/LuaAssignmentStatement'
 import LuaForGenericStatement from '@/ast/Statement/LuaForGenericStatement'
 import LuaForNumericStatement from '@/ast/Statement/LuaForNumericStatement'
@@ -39,7 +36,7 @@ export default class StripDeadCodeStep extends Step<{}> {
 
       const isGlobal = state.isGlobal(identifier)
       const refCount = scope.getReferenceCount(identifier)
-      const statement = scope.getStatement(identifier)
+      const statement = scope.getLastStatement(identifier)
 
       // Dead code condition: not global & no reference & has statement
       if (isGlobal || refCount > 0 || statement == null) continue
@@ -68,6 +65,20 @@ export default class StripDeadCodeStep extends Step<{}> {
     return null
   }
 
+  private isScopeValid(scope: LuaScope, identifier: LuaIdentifier, state: LuaState): boolean {
+    const statement = state.getLastStatement(identifier) ?? null
+
+    if (statement == null) return true
+
+    let statementScope = statement.scope
+
+    if (statement instanceof LuaFunctionDeclaration) {
+      statementScope = statementScope.parent ?? statementScope
+    }
+
+    return statementScope.isChild(scope)
+  }
+
   private stripLocalStatement(node: LuaLocalStatement, scope: LuaScope, state: LuaState): boolean {
     const { variables } = node
 
@@ -89,7 +100,7 @@ export default class StripDeadCodeStep extends Step<{}> {
   }
 
   private visitPreAssignmentStatement(node: LuaAssignmentStatement, state: LuaState): void {
-    const { scope, variables } = node
+    const { variables } = node
 
     for (const varName of variables) {
       // Check if variable is identifier
@@ -97,37 +108,20 @@ export default class StripDeadCodeStep extends Step<{}> {
 
       const isGlobal = state.isGlobal(varName)
       const refCount = state.getReferenceCount(varName)
-      const statement = state.getStatement(varName)
+      const lastRef = state.getLastReference(varName)
+      const statement = state.getLastStatement(varName)
 
-      // Check if variable is global or there are any reference to variable
-      if (isGlobal || refCount > 0) continue
+      // Check if variable is global or there are any reference to variable or missing last reference
+      if (isGlobal || refCount > 0 || lastRef == null) continue
 
-      // Check if statement is valid
-      if (
-        !(statement instanceof LuaLocalStatement) &&
-        !(statement instanceof LuaAssignmentStatement)
-      ) continue
+      // Check if statement type is assign statement
+      if (!(statement instanceof LuaAssignmentStatement)) continue
 
       // Check if statement has more than 1 variable
       if (statement.variables.length > 1) continue
 
-      const parentNode = scope.node
-
       // Check if scope is valid
-      if (
-        // Check if scope is within last assign statement scope
-        !statement.scope.isChild(scope) ||
-        // Check for conditional statement
-        (
-          (
-            parentNode instanceof LuaElseClause ||
-            parentNode instanceof LuaElseifClause ||
-            parentNode instanceof LuaFunctionDeclaration ||
-            parentNode instanceof LuaIfClause
-          ) &&
-          scope.isParent(statement.scope)
-        )
-      ) continue
+      if (!this.isScopeValid(lastRef.scope, varName, state)) continue
 
       // Remove assign statement
       this.removeNode(state, statement)

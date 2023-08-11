@@ -77,7 +77,7 @@ export default class TableConstructorStep extends Step<{}> {
     // Check if base type is identifier
     if (!(base instanceof LuaIdentifier)) return null
 
-    const statement = state.getStatement(base)
+    const statement = state.getLastStatement(base)
     const value = state.read(base)
 
     // Check if statement & value type is valid

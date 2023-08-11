@@ -223,12 +223,6 @@ export default abstract class Step<TConf> {
       const varName = variables[i]
       const varInit = init[i]
 
-      if (varInit == null) {
-        // Check if variable is unknown
-        if (varName instanceof LuaIdentifier && init.length > 0) state.write(varName, null, node)
-        continue
-      }
-
       if (varName instanceof LuaIdentifier) {
         if (!state.write(varName, varInit, node)) {
           state.log('write failed:', varName)
@@ -267,7 +261,7 @@ export default abstract class Step<TConf> {
       return
     }
 
-    state.debug(`declare ${isLocal || !state.isGlobal(identifier) ? 'local ' : ''} function: `, identifier)
+    state.debug(`declare ${isLocal || !state.isGlobal(identifier) ? 'local ' : ''}function: `, identifier)
   }
 
   private internalVisitPostIndexExpression(node: LuaIndexExpression, state: LuaState): void {

@@ -45,6 +45,8 @@ export default class LuaState {
     this.stack.push(this.scope)
     this.scope = scope
     this.depth = scope.getDepth()
+
+    scope.clear()
   }
 
   public pop(): void {
@@ -145,23 +147,61 @@ export default class LuaState {
     return globalScope.getLastReference(identifier)
   }
 
-  public getStatement(identifier: LuaIdentifier): LuaBase | null {
+  public getFirstStatement(identifier: LuaIdentifier): LuaBase | null {
     const { scope, stack, globalScope } = this
 
     // Current scope
-    if (scope.isAllocated(identifier)) return scope.getStatement(identifier)
+    if (scope.isAllocated(identifier)) return scope.getFirstStatement(identifier)
 
     // Parent scope
     for (let i = stack.length - 1; i >= 0; i--) {
       const stackScope = stack[i]
 
-      if (stackScope.isAllocated(identifier)) return stackScope.getStatement(identifier)
+      if (stackScope.isAllocated(identifier)) return stackScope.getFirstStatement(identifier)
     }
 
     // Global scope
     if (!globalScope.isAllocated(identifier)) return null
 
-    return globalScope.getStatement(identifier)
+    return globalScope.getFirstStatement(identifier)
+  }
+
+  public getLastStatement(identifier: LuaIdentifier): LuaBase | null {
+    const { scope, stack, globalScope } = this
+
+    // Current scope
+    if (scope.isAllocated(identifier)) return scope.getLastStatement(identifier)
+
+    // Parent scope
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const stackScope = stack[i]
+
+      if (stackScope.isAllocated(identifier)) return stackScope.getLastStatement(identifier)
+    }
+
+    // Global scope
+    if (!globalScope.isAllocated(identifier)) return null
+
+    return globalScope.getLastStatement(identifier)
+  }
+
+  public getDeepestStatement(identifier: LuaIdentifier): LuaBase | null {
+    const { scope, stack, globalScope } = this
+
+    // Current scope
+    if (scope.isAllocated(identifier)) return scope.getDeepestStatement(identifier)
+
+    // Parent scope
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const stackScope = stack[i]
+
+      if (stackScope.isAllocated(identifier)) return stackScope.getDeepestStatement(identifier)
+    }
+
+    // Global scope
+    if (!globalScope.isAllocated(identifier)) return null
+
+    return globalScope.getDeepestStatement(identifier)
   }
 
   public isAllocated(identifier: LuaIdentifier): boolean {
@@ -224,7 +264,7 @@ export default class LuaState {
 
     // Current scope
     if (scope.isAllocated(identifier)) {
-      this.debug('read from current scope:', identifier, 'statement:', statement)
+      this.debug(`read from current scope[${stack.length}]:`, identifier, 'statement:', statement)
       return scope.read(identifier, statement)!
     }
 
@@ -250,7 +290,7 @@ export default class LuaState {
 
     // Current scope
     if (scope.isAllocated(identifier)) {
-      this.debug('write to current scope:', identifier, 'data:', data)
+      this.debug(`write to current scope[${stack.length}]:`, identifier, 'data:', data)
       return scope.write(identifier, data, statement)
     }
 

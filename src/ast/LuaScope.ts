@@ -10,7 +10,7 @@ export default class LuaScope {
 
   private storageMap: Map<string, LuaBase | null>
   private referenceMap: Map<string, LuaBase[]>
-  private statementMap: Map<string, LuaBase>
+  private statementMap: Map<string, LuaBase[]>
 
   public constructor(node: LuaBase, parent?: LuaScope | false) {
     this.global = parent === false ? this : (parent?.global ?? new LuaScope(node, false))
@@ -43,11 +43,39 @@ export default class LuaScope {
   }
 
   public getLastReference(identifier: LuaIdentifier): LuaBase | null {
-    return this.referenceMap.get(identifier.name)?.[this.getReferenceCount(identifier) - 1] ?? null
+    const referenceList = this.referenceMap.get(identifier.name)
+
+    return referenceList?.[referenceList.length - 1] ?? null
   }
 
-  public getStatement(identifier: LuaIdentifier): LuaBase | null {
-    return this.statementMap.get(identifier.name) ?? null
+  public getFirstStatement(identifier: LuaIdentifier): LuaBase | null {
+    return this.statementMap.get(identifier.name)?.[0] ?? null
+  }
+
+  public getLastStatement(identifier: LuaIdentifier): LuaBase | null {
+    const statementList = this.statementMap.get(identifier.name)
+
+    return statementList?.[statementList.length - 1] ?? null
+  }
+
+  public getDeepestStatement(identifier: LuaIdentifier): LuaBase | null {
+    const statementList = this.statementMap.get(identifier.name)
+
+    if (statementList == null) return null
+
+    let maxDepth = -1
+    let maxStatement: LuaBase | null = null
+
+    for (const statement of statementList) {
+      const depth = statement.scope.getDepth()
+
+      if (depth <= maxDepth) continue
+
+      maxDepth = depth
+      maxStatement = statement
+    }
+
+    return maxStatement
   }
 
   public isAllocated(identifier: LuaIdentifier): boolean {
@@ -94,9 +122,9 @@ export default class LuaScope {
 
     storageMap.set(name, isUnknown ? null : new LuaScope.allocValue(this))
     referenceMap.set(name, [])
+    statementMap.set(name, [])
 
-    if (statement != null) statementMap.set(name, statement)
-
+    if (statement != null) statementMap.get(name)?.push(statement)
     return isRedefined
   }
 
@@ -121,7 +149,7 @@ export default class LuaScope {
     storageMap.set(name, data)
     referenceMap.get(name)?.splice(0)
 
-    if (statement != null) statementMap.set(name, statement)
+    if (statement != null) statementMap.get(name)?.push(statement)
     return true
   }
 
