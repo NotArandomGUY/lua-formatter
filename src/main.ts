@@ -33,7 +33,7 @@ async function readLuacFile(dir: string, reader: FileReader, parser: Parser): Pr
 
   if (buf == null) return -1
 
-  const decompilerPath = join(dir, 'decompiler.exe')
+  const decompilerPath = join(dir, `decompiler-${buf[4].toString(16).padStart(2, '0')}${buf[5].toString(16).padStart(2, '0')}.exe`)
 
   if (!await fileExists(decompilerPath)) {
     console.log(`Failed to find decompiler at: ${decompilerPath}`)
@@ -81,7 +81,7 @@ async function main(argv: string[]): Promise<number> {
 
   const mode = argv[2]
   const srcPath = argv[3]
-  const dstPath = argv[4] ?? ((srcPath.endsWith('.lua') ? srcPath.slice(0, -4) : srcPath) + '.ast.lua')
+  const dstPath = argv[4] ?? srcPath.replace(/(\.lua$|\.luac$|$)/, '.ast.lua')
 
   const reader = new FileReader(srcPath)
 
