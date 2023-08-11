@@ -475,6 +475,8 @@ export default class InlineStep extends Step<{}> {
 
       state.log(`inline by reference return arguments[${i}]:`, arg, '->', args[i])
     }
+
+    state.skip = true
   }
 
   private visitPreTableKey(node: LuaTableKey, state: LuaState): void {

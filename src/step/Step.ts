@@ -150,10 +150,10 @@ export default abstract class Step<TConf> {
   }
 
   private internalVisitPreForGenericStatement(node: LuaForGenericStatement, state: LuaState): void {
-    const { variables, iterators } = node
+    const { scope, variables, iterators } = node
 
     for (const variable of variables) {
-      if (!state.alloc(variable, true, node)) {
+      if (!scope.alloc(variable, true, node)) {
         state.debug('redefined for generic variable:', variable)
         continue
       }
@@ -168,11 +168,11 @@ export default abstract class Step<TConf> {
   }
 
   private internalVisitPreForNumericStatement(node: LuaForNumericStatement, state: LuaState): void {
-    const { variable } = node
+    const { scope, variable } = node
 
     if (variable == null) return
 
-    if (!state.alloc(variable, true, node)) {
+    if (!scope.alloc(variable, true, node)) {
       state.debug('redefined for numeric variable:', variable)
       return
     }
@@ -181,12 +181,12 @@ export default abstract class Step<TConf> {
   }
 
   private internalVisitPreFunctionDeclaration(node: LuaFunctionDeclaration, state: LuaState): void {
-    const { parameters } = node
+    const { scope, parameters } = node
 
     for (const param of parameters) {
       if (!(param instanceof LuaIdentifier)) continue
 
-      if (!state.alloc(param, true, node)) {
+      if (!scope.alloc(param, true, node)) {
         state.debug('redefined parameter:', param)
         continue
       }
