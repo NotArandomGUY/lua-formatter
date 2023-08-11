@@ -126,6 +126,25 @@ export default class LuaState {
     return globalScope.getReferenceCount(identifier)
   }
 
+  public getLastReference(identifier: LuaIdentifier): LuaBase | null {
+    const { scope, stack, globalScope } = this
+
+    // Current scope
+    if (scope.isAllocated(identifier)) return scope.getLastReference(identifier)
+
+    // Parent scope
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const stackScope = stack[i]
+
+      if (stackScope.isAllocated(identifier)) return stackScope.getLastReference(identifier)
+    }
+
+    // Global scope
+    if (!globalScope.isAllocated(identifier)) return null
+
+    return globalScope.getLastReference(identifier)
+  }
+
   public getStatement(identifier: LuaIdentifier): LuaBase | null {
     const { scope, stack, globalScope } = this
 
@@ -200,13 +219,13 @@ export default class LuaState {
     return this.scope.alloc(identifier, isUnknown, statement)
   }
 
-  public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, isTrack = false): T {
+  public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, statement?: LuaBase): T {
     const { scope, stack, globalScope } = this
 
     // Current scope
     if (scope.isAllocated(identifier)) {
-      this.debug('read from current scope:', identifier, 'track:', isTrack)
-      return scope.read(identifier, isTrack)!
+      this.debug('read from current scope:', identifier, 'statement:', statement)
+      return scope.read(identifier, statement)!
     }
 
     // Parent scope
@@ -214,16 +233,16 @@ export default class LuaState {
       const stackScope = stack[i]
 
       if (stackScope.isAllocated(identifier)) {
-        this.debug(`read from stack scope[${i}]:`, identifier, 'track:', isTrack)
-        return stackScope.read(identifier, isTrack)!
+        this.debug(`read from stack scope[${i}]:`, identifier, 'statement:', statement)
+        return stackScope.read(identifier, statement)!
       }
     }
 
     // Global scope
     if (!globalScope.isAllocated(identifier)) globalScope.alloc(identifier)
 
-    this.debug('read from global scope:', identifier, 'track:', isTrack)
-    return globalScope.read(identifier, isTrack)!
+    this.debug('read from global scope:', identifier, 'statement:', statement)
+    return globalScope.read(identifier, statement)!
   }
 
   public write(identifier: LuaIdentifier, data: LuaBase | null, statement?: LuaBase): boolean {

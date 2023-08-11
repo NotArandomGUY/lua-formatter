@@ -9,7 +9,7 @@ export default class LuaScope {
   public node: LuaBase
 
   private storageMap: Map<string, LuaBase | null>
-  private referenceMap: Map<string, number>
+  private referenceMap: Map<string, LuaBase[]>
   private statementMap: Map<string, LuaBase>
 
   public constructor(node: LuaBase, parent?: LuaScope | false) {
@@ -39,7 +39,11 @@ export default class LuaScope {
   }
 
   public getReferenceCount(identifier: LuaIdentifier): number {
-    return this.referenceMap.get(identifier.name) ?? 0
+    return this.referenceMap.get(identifier.name)?.length ?? 0
+  }
+
+  public getLastReference(identifier: LuaIdentifier): LuaBase | null {
+    return this.referenceMap.get(identifier.name)?.[this.getReferenceCount(identifier) - 1] ?? null
   }
 
   public getStatement(identifier: LuaIdentifier): LuaBase | null {
@@ -89,21 +93,21 @@ export default class LuaScope {
     if (LuaScope.allocValue == null) throw new Error('Allocate value unset')
 
     storageMap.set(name, isUnknown ? null : new LuaScope.allocValue(this))
-    referenceMap.set(name, 0)
+    referenceMap.set(name, [])
 
     if (statement != null) statementMap.set(name, statement)
 
     return isRedefined
   }
 
-  public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, isTrack = false): T | null {
+  public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, statement?: LuaBase): T | null {
     const { storageMap, referenceMap } = this
     const { name } = identifier
 
     if (!this.isAllocated(identifier)) return null
 
     // Increase reference count if enabled tracking
-    if (isTrack) referenceMap.set(name, referenceMap.get(name)! + 1)
+    if (statement != null) referenceMap.get(name)?.push(statement)
 
     return <T | null>(storageMap.get(name) ?? null)
   }
@@ -115,7 +119,7 @@ export default class LuaScope {
     if (!this.isAllocated(identifier)) return false
 
     storageMap.set(name, data)
-    referenceMap.set(name, 0)
+    referenceMap.get(name)?.splice(0)
 
     if (statement != null) statementMap.set(name, statement)
     return true

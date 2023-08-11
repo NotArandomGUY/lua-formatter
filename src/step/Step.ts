@@ -146,7 +146,7 @@ export default abstract class Step<TConf> {
     const { condition } = node
 
     // Bump condition identifier reference count
-    if (condition instanceof LuaIdentifier) state.read(condition, true)
+    if (condition instanceof LuaIdentifier) state.read(condition, node)
   }
 
   private internalVisitPreForGenericStatement(node: LuaForGenericStatement, state: LuaState): void {
@@ -163,7 +163,7 @@ export default abstract class Step<TConf> {
 
     for (const iterator of iterators) {
       // Bump iterator identifier reference count
-      if (iterator instanceof LuaIdentifier) state.read(iterator, true)
+      if (iterator instanceof LuaIdentifier) state.read(iterator, node)
     }
   }
 
@@ -239,7 +239,7 @@ export default abstract class Step<TConf> {
       }
 
       // Bump init identifier reference count
-      if (varInit instanceof LuaIdentifier) state.read(varInit, true)
+      if (varInit instanceof LuaIdentifier) state.read(varInit, node)
     }
   }
 
@@ -247,11 +247,11 @@ export default abstract class Step<TConf> {
     const { base, arguments: args } = node
 
     // Bump base identifier reference count
-    if (base instanceof LuaIdentifier) state.read(base, true)
+    if (base instanceof LuaIdentifier) state.read(base, node)
 
     for (const arg of args) {
       // Bump argument identifier reference count
-      if (arg instanceof LuaIdentifier) state.read(arg, true)
+      if (arg instanceof LuaIdentifier) state.read(arg, node)
     }
   }
 
@@ -274,20 +274,20 @@ export default abstract class Step<TConf> {
     const { base, index } = node
 
     // Bump base identifier reference count
-    if (base instanceof LuaIdentifier) state.read(base, true)
+    if (base instanceof LuaIdentifier) state.read(base, node)
 
     // Bump index identifier reference count
-    if (index instanceof LuaIdentifier) state.read(index, true)
+    if (index instanceof LuaIdentifier) state.read(index, node)
   }
 
   private internalVisitPostLeftRightExpression(node: LuaBinaryExpression | LuaLogicalExpression, state: LuaState) {
     const { left, right } = node
 
     // Bump left side identifier reference count
-    if (left instanceof LuaIdentifier) state.read(left, true)
+    if (left instanceof LuaIdentifier) state.read(left, node)
 
     // Bump right side identifier reference count
-    if (right instanceof LuaIdentifier) state.read(right, true)
+    if (right instanceof LuaIdentifier) state.read(right, node)
   }
 
   private internalVisitPostLocalStatement(node: LuaLocalStatement, state: LuaState): void {
@@ -322,7 +322,7 @@ export default abstract class Step<TConf> {
     const { base } = node
 
     // Bump base identifier reference count
-    if (base instanceof LuaIdentifier) state.read(base, true)
+    if (base instanceof LuaIdentifier) state.read(base, node)
   }
 
   private internalVisitPostReturnStatement(node: LuaReturnStatement, state: LuaState): void {
@@ -330,7 +330,7 @@ export default abstract class Step<TConf> {
 
     for (const arg of args) {
       // Bump argument identifier reference count
-      if (arg instanceof LuaIdentifier) state.read(arg, true)
+      if (arg instanceof LuaIdentifier) state.read(arg, node)
     }
   }
 
@@ -338,23 +338,23 @@ export default abstract class Step<TConf> {
     const { key, value } = node
 
     // Bump key identifier reference count
-    if (key instanceof LuaIdentifier) state.read(key, true)
+    if (key instanceof LuaIdentifier) state.read(key, node)
 
     // Bump value identifier reference count
-    if (value instanceof LuaIdentifier) state.read(value, true)
+    if (value instanceof LuaIdentifier) state.read(value, node)
   }
 
   private internalVisitPostTableValue(node: LuaTableKeyString | LuaTableValue, state: LuaState): void {
     const { value } = node
 
     // Bump value identifier reference count
-    if (value instanceof LuaIdentifier) state.read(value, true)
+    if (value instanceof LuaIdentifier) state.read(value, node)
   }
 
   private internalVisitPostUnaryExpression(node: LuaUnaryExpression, state: LuaState): void {
     const { argument } = node
 
     // Bump argument identifier reference count
-    if (argument instanceof LuaIdentifier) state.read(argument, true)
+    if (argument instanceof LuaIdentifier) state.read(argument, node)
   }
 }
