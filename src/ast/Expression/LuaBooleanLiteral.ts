@@ -53,7 +53,7 @@ export default class LuaBooleanLiteral extends LuaExpression<'BooleanLiteral'> {
     return value ? 'true' : 'false'
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

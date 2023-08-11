@@ -59,9 +59,9 @@ export default class LuaCallStatement extends LuaStatement<'CallStatement'> {
     return `${padding}${expression.toString(indent)}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { expression } = this
 
-    this.expression = <typeof this.expression>expression?.visit(pre, post, postBlock, state) ?? null
+    this.expression = <typeof expression>(await expression?.visit(pre, post, postBlock, state) ?? null)
   }
 }

@@ -63,11 +63,11 @@ export default class LuaIfStatement extends LuaStatement<'IfStatement'> {
     return `${clauses.map(c => c.toString(indent)).join('\n')}\n${padding}end`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { clauses } = this
 
     for (let i = 0; i < clauses.length; i++) {
-      clauses[i] = <typeof clauses[0]>clauses[i].visit(pre, post, postBlock, state)
+      clauses[i] = <typeof clauses[0]>(await clauses[i].visit(pre, post, postBlock, state))
     }
   }
 }

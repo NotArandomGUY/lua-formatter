@@ -32,7 +32,7 @@ export default class LuaBreakStatement extends LuaStatement<'BreakStatement'> {
     return `${padding}break`
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

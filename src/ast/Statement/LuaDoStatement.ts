@@ -65,12 +65,12 @@ export default class LuaDoStatement extends LuaStatement<'DoStatement'> implemen
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, body } = this
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

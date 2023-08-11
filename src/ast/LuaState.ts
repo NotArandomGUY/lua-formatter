@@ -4,6 +4,14 @@ import LuaScope from './LuaScope'
 
 const IS_DEBUG = process.env['LUA_FMT_DEBUG'] === '1'
 
+interface CallInfo<S = object, A extends any[] = object[], R = object> {
+  resolve: (ret: R | PromiseLike<R>) => void
+  reject: (err: Error) => void
+  func: Function
+  self: S
+  args: A
+}
+
 export default class LuaState {
   public scope: LuaScope
   public node: LuaBase
@@ -11,12 +19,20 @@ export default class LuaState {
   public depth: number
   public skip: boolean
 
+  private callQueue: CallInfo[]
+  private callTimer: NodeJS.Timer | null
+  private callImmediate: number
+
   public constructor(node: LuaBase) {
     this.scope = node.scope
     this.node = node
     this.stack = []
     this.depth = 0
     this.skip = false
+
+    this.callQueue = []
+    this.callTimer = null
+    this.callImmediate = 0
   }
 
   public get globalScope(): LuaScope {
@@ -40,6 +56,35 @@ export default class LuaState {
 
     this.scope = scope
     this.depth = scope.getDepth()
+  }
+
+  public async call<S = object, A extends any[] = object[], R = void>(fn: (this: S, ...args: A) => R, self: S, ...args: A): Promise<R> {
+    return new Promise((resolve, reject) => {
+      const { callQueue, callTimer } = this
+
+      // Push function to call queue
+      callQueue.push(<CallInfo>{
+        resolve,
+        reject,
+        func: fn,
+        self,
+        args
+      })
+
+      // Check if immediate call is available
+      if (++this.callImmediate <= 32) {
+        this.updateCall()
+        return
+      }
+
+      // Reset immediate call count
+      this.callImmediate = 0
+
+      // Check if timer already started
+      if (callTimer != null) return
+
+      this.callTimer = setInterval(this.updateCall.bind(this), 1)
+    })
   }
 
   public getKeys(): string[] {
@@ -214,5 +259,37 @@ export default class LuaState {
 
   public debug(msg: string, ...args: any[]): void {
     if (IS_DEBUG) this.log(msg, ...args)
+  }
+
+  private updateCall(): void {
+    const { callQueue, callTimer } = this
+
+    // Check if call queue is empty
+    if (callQueue.length === 0) {
+      // Stop timer
+      if (callTimer != null) clearInterval(callTimer)
+      this.callTimer = null
+      return
+    }
+
+    for (let i = 0; i < 100; i++) {
+      const callInfo = callQueue.shift()
+
+      // Stop if call queue is empty
+      if (callInfo == null) break
+
+      const { resolve, reject, func, self, args } = callInfo
+
+      try {
+        const ret = func.call(self, ...args)
+        if (ret instanceof Promise) {
+          ret.then(resolve).catch(reject)
+        } else {
+          resolve(ret)
+        }
+      } catch (err) {
+        reject(<Error>err)
+      }
+    }
   }
 }

@@ -51,7 +51,7 @@ export default class LuaNilLiteral extends LuaExpression<'NilLiteral'> {
     return 'nil'
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

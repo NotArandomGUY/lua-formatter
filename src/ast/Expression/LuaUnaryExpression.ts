@@ -99,9 +99,9 @@ export default class LuaUnaryExpression extends LuaExpression<'UnaryExpression'>
     return `${opStr}${opStr.length > 1 ? ' ' : ''}${argument.toString()}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { argument } = this
 
-    this.argument = argument?.visit(pre, post, postBlock, state) ?? null
+    this.argument = await argument?.visit(pre, post, postBlock, state) ?? null
   }
 }

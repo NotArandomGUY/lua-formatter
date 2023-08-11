@@ -49,7 +49,7 @@ export default class LuaIdentifier extends LuaExpression<'Identifier'> {
     return this.name
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

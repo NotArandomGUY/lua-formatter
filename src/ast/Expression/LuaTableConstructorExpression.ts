@@ -94,11 +94,11 @@ export default class LuaTableConstructorExpression extends LuaExpression<'TableC
     return `${isInline ? '' : padding}{\n${fields.map(f => f.toString(indent)).join(',\n')}\n${padding}}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { fields } = this
 
     for (let i = 0; i < fields.length; i++) {
-      fields[i] = <typeof fields[0]>fields[i].visit(pre, post, postBlock, state)
+      fields[i] = <typeof fields[0]>(await fields[i].visit(pre, post, postBlock, state))
     }
   }
 }

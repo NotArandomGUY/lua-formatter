@@ -81,20 +81,20 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, variables, iterators, body } = this
 
     for (let i = 0; i < variables.length; i++) {
-      variables[i] = <typeof variables[0]>variables[i].visit(pre, post, postBlock, state)
+      variables[i] = <typeof variables[0]><unknown>(await variables[i].visit(pre, post, postBlock, state))
     }
 
     for (let i = 0; i < iterators.length; i++) {
-      iterators[i] = iterators[i].visit(pre, post, postBlock, state)
+      iterators[i] = await iterators[i].visit(pre, post, postBlock, state)
     }
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

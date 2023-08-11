@@ -56,9 +56,9 @@ export default class LuaGotoStatement extends LuaStatement<'GotoStatement'> {
     return `${padding}goto ${label.name}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { label } = this
 
-    this.label = <typeof label>label?.visit(pre, post, postBlock, state) ?? null
+    this.label = <typeof label>(await label?.visit(pre, post, postBlock, state) ?? null)
   }
 }

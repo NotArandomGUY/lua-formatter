@@ -185,10 +185,10 @@ export default class LuaBinaryExpression extends LuaExpression<'BinaryExpression
     return `${left.toString()} ${LuaBinaryExpression.opToStr(operator)} ${right.toString()}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { left, right } = this
 
-    this.left = left?.visit(pre, post, postBlock, state) ?? null
-    this.right = right?.visit(pre, post, postBlock, state) ?? null
+    this.left = await left?.visit(pre, post, postBlock, state) ?? null
+    this.right = await right?.visit(pre, post, postBlock, state) ?? null
   }
 }

@@ -60,11 +60,11 @@ export default class LuaReturnStatement extends LuaStatement<'ReturnStatement'> 
     return `${padding}return ${args.map(e => e.toString(indent, true)).join(', ')}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { arguments: args } = this
 
     for (let i = 0; i < args.length; i++) {
-      args[i] = args[i].visit(pre, post, postBlock, state)
+      args[i] = await args[i].visit(pre, post, postBlock, state)
     }
   }
 }

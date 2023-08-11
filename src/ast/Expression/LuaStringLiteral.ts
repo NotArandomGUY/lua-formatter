@@ -56,7 +56,7 @@ export default class LuaStringLiteral extends LuaExpression<'StringLiteral'> {
     return `'${this.getEncodedValue().replace(/'/g, '\\\'')}'`
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 

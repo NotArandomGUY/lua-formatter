@@ -71,7 +71,7 @@ export default abstract class LuaBase<TType extends keyof typeof ASTMap = keyof 
     return <this>LuaBase.createFromJson(this.toJson(), scope)
   }
 
-  public visit(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState = new LuaState(this)): LuaBase {
+  public async visit(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState = new LuaState(this)): Promise<LuaBase> {
     try {
       let node: LuaBase = this
 
@@ -87,7 +87,7 @@ export default abstract class LuaBase<TType extends keyof typeof ASTMap = keyof 
       }
 
       // Visit nested
-      this.visitNested(pre, post, postBlock, state)
+      await state.call(this.visitNested, this, pre, post, postBlock, state)
 
       // Execute post visit callback
       if (typeof post === 'function') {
@@ -122,5 +122,5 @@ export default abstract class LuaBase<TType extends keyof typeof ASTMap = keyof 
 
   public abstract toString(indent?: number, isInline?: boolean): string
 
-  protected abstract visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void
+  protected abstract visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void>
 }

@@ -55,7 +55,7 @@ export default class LuaComment extends LuaBase<'Comment'> {
     throw new Error('Method not implemented.')
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

@@ -66,10 +66,10 @@ export default class LuaStringCallExpression extends LuaExpression<'StringCallEx
     throw new Error('Method not implemented.')
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { base, argument } = this
 
-    this.base = base?.visit(pre, post, postBlock, state) ?? null
-    this.argument = argument?.visit(pre, post, postBlock, state) ?? null
+    this.base = await base?.visit(pre, post, postBlock, state) ?? null
+    this.argument = await argument?.visit(pre, post, postBlock, state) ?? null
   }
 }

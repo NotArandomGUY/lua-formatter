@@ -75,14 +75,14 @@ export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> im
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, condition, body } = this
 
-    this.condition = condition?.visit(pre, post, postBlock, state) ?? null
+    this.condition = await condition?.visit(pre, post, postBlock, state) ?? null
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

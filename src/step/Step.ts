@@ -44,7 +44,7 @@ export default abstract class Step<TConf> {
     this.pendingRemoveNodes = []
   }
 
-  public apply(ast: LuaChunk, maxIteration = 100): void {
+  public async apply(ast: LuaChunk, maxIteration = 100): Promise<void> {
     const padding = '='.repeat(20)
 
     console.log(`${padding}[BEGIN ${this.constructor.name}]${padding}`)
@@ -59,7 +59,7 @@ export default abstract class Step<TConf> {
 
       console.log(`${padding}[IT${this.currentIteration.toString().padStart(3, '0')} ${this.constructor.name}]${padding}`)
 
-      ast.visit(
+      await ast.visit(
         this.preVisitInternal.bind(this),
         this.postVisitInternal.bind(this),
         this.postVisitBlockInternal.bind(this)

@@ -61,12 +61,12 @@ export default class LuaElseClause extends LuaBase<'ElseClause'> implements ICod
     return `${padding}else\n${body.map(s => s.toString(indent)).join('\n')}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, body } = this
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

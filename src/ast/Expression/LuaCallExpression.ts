@@ -65,13 +65,13 @@ export default class LuaCallExpression extends LuaExpression<'CallExpression'> {
     return `${base.toString()}(${args.map(e => e.toString(indent, true)).join(', ')})`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { base, arguments: args } = this
 
-    this.base = base?.visit(pre, post, postBlock, state) ?? null
+    this.base = await base?.visit(pre, post, postBlock, state) ?? null
 
     for (let i = 0; i < args.length; i++) {
-      args[i] = args[i].visit(pre, post, postBlock, state)
+      args[i] = await args[i].visit(pre, post, postBlock, state)
     }
   }
 }

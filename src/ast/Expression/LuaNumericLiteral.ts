@@ -53,7 +53,7 @@ export default class LuaNumericLiteral extends LuaExpression<'NumericLiteral'> {
     return `${value}`
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

@@ -104,17 +104,17 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, variable, start, end, step, body } = this
 
-    this.variable = <typeof variable>variable?.visit(pre, post, postBlock, state) ?? null
-    this.start = start?.visit(pre, post, postBlock, state) ?? null
-    this.end = end?.visit(pre, post, postBlock, state) ?? null
-    this.step = step?.visit(pre, post, postBlock, state) ?? null
+    this.variable = <typeof variable>(await variable?.visit(pre, post, postBlock, state) ?? null)
+    this.start = await start?.visit(pre, post, postBlock, state) ?? null
+    this.end = await end?.visit(pre, post, postBlock, state) ?? null
+    this.step = await step?.visit(pre, post, postBlock, state) ?? null
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

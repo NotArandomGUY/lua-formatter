@@ -56,9 +56,9 @@ export default class LuaTableValue extends LuaBase<'TableValue'> {
     return `${padding}${value.toString(indent, true)}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { value } = this
 
-    this.value = value?.visit(pre, post, postBlock, state) ?? null
+    this.value = await value?.visit(pre, post, postBlock, state) ?? null
   }
 }

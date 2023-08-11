@@ -78,10 +78,10 @@ export default class LuaMemberExpression extends LuaExpression<'MemberExpression
     return `${baseStr}${isStatic ? '.' : ':'}${identifier.toString()}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { base, identifier } = this
 
-    this.base = base?.visit(pre, post, postBlock, state) ?? null
-    this.identifier = <typeof identifier>identifier?.visit(pre, post, postBlock, state) ?? null
+    this.base = await base?.visit(pre, post, postBlock, state) ?? null
+    this.identifier = <typeof identifier>(await identifier?.visit(pre, post, postBlock, state) ?? null)
   }
 }

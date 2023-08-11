@@ -67,10 +67,10 @@ export default class LuaIndexExpression extends LuaExpression<'IndexExpression'>
     return `${base.toString()}[${index.toString()}]`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { base, index } = this
 
-    this.base = base?.visit(pre, post, postBlock, state) ?? null
-    this.index = index?.visit(pre, post, postBlock, state) ?? null
+    this.base = await base?.visit(pre, post, postBlock, state) ?? null
+    this.index = await index?.visit(pre, post, postBlock, state) ?? null
   }
 }

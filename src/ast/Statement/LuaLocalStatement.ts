@@ -66,15 +66,15 @@ export default class LuaLocalStatement extends LuaStatement<'LocalStatement'> {
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { variables, init } = this
 
     for (let i = 0; i < variables.length; i++) {
-      variables[i] = <typeof variables[0]>variables[i].visit(pre, post, postBlock, state)
+      variables[i] = <typeof variables[0]><unknown>(await variables[i].visit(pre, post, postBlock, state))
     }
 
     for (let i = 0; i < init.length; i++) {
-      init[i] = init[i].visit(pre, post, postBlock, state)
+      init[i] = await init[i].visit(pre, post, postBlock, state)
     }
   }
 }

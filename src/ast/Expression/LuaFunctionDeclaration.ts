@@ -87,18 +87,18 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
     return output
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, identifier, parameters, body } = this
 
-    this.identifier = <typeof identifier>identifier?.visit(pre, post, postBlock, state) ?? null
+    this.identifier = <typeof identifier>(await identifier?.visit(pre, post, postBlock, state) ?? null)
 
     for (let i = 0; i < parameters.length; i++) {
-      parameters[i] = <typeof parameters[0]>parameters[i].visit(pre, post, postBlock, state)
+      parameters[i] = <typeof parameters[0]>(await parameters[i].visit(pre, post, postBlock, state))
     }
 
     state.push(scope)
     for (let i = 0; i < body.length; i++) {
-      body[i] = body[i].visit(pre, post, postBlock, state)
+      body[i] = await body[i].visit(pre, post, postBlock, state)
     }
 
     if (typeof postBlock === 'function') {

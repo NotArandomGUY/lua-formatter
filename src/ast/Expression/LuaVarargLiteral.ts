@@ -53,7 +53,7 @@ export default class LuaVarargLiteral extends LuaExpression<'VarargLiteral'> {
     return value
   }
 
-  protected visitNested(): void {
+  protected async visitNested(): Promise<void> {
     return
   }
 }

@@ -10,16 +10,16 @@ import InlineStep from './step/deobfuscate/InlineStep'
 import StripDeadCodeStep from './step/deobfuscate/StripDeadCodeStep'
 import TableConstructorStep from './step/deobfuscate/TableConstructorStep'
 
-function processChunk(mode: string, chunk: LuaChunk, maxIteration: number): number {
+async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number): Promise<number> {
   switch (mode) {
     case 'obfuscate':
       return 0
     case 'deobfuscate':
-      Step.create(InlineStep).apply(chunk, maxIteration)
-      Step.create(TableConstructorStep).apply(chunk, maxIteration)
-      Step.create(InlineStep).apply(chunk, maxIteration)
-      Step.create(FixupFunctionNameStep).apply(chunk, maxIteration)
-      Step.create(StripDeadCodeStep).apply(chunk, maxIteration)
+      await Step.create(InlineStep).apply(chunk, maxIteration)
+      await Step.create(TableConstructorStep).apply(chunk, maxIteration)
+      await Step.create(InlineStep).apply(chunk, maxIteration)
+      await Step.create(FixupFunctionNameStep).apply(chunk, maxIteration)
+      await Step.create(StripDeadCodeStep).apply(chunk, maxIteration)
       return 0
     default:
       console.log(`Invalid mode: ${mode}`)
@@ -67,7 +67,7 @@ async function main(argv: string[]): Promise<number> {
   await LuaBase.init()
   const ast = LuaBase.createFromJson(parser.end(''))
 
-  if (processChunk(mode, ast, Math.ceil(lineCount / 10)) !== 0) return 1
+  if (await processChunk(mode, ast, Math.ceil(lineCount / 10)) !== 0) return 1
 
   await writeFile(dstPath, ast.toString())
 

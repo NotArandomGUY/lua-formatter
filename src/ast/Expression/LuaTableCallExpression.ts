@@ -66,10 +66,10 @@ export default class LuaTableCallExpression extends LuaExpression<'TableCallExpr
     throw new Error('Method not implemented.')
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { base, arguments: args } = this
 
-    this.base = base?.visit(pre, post, postBlock, state) ?? null
-    this.arguments = args?.visit(pre, post, postBlock, state) ?? null
+    this.base = await base?.visit(pre, post, postBlock, state) ?? null
+    this.arguments = await args?.visit(pre, post, postBlock, state) ?? null
   }
 }

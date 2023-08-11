@@ -69,10 +69,10 @@ export default class LuaTableKey extends LuaBase<'TableKey'> {
     return `${padding}[${key.toString(indent, true)}] = ${value.toString(indent, true)}`
   }
 
-  protected visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): void {
+  protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { key, value } = this
 
-    this.key = key?.visit(pre, post, postBlock, state) ?? null
-    this.value = value?.visit(pre, post, postBlock, state) ?? null
+    this.key = await key?.visit(pre, post, postBlock, state) ?? null
+    this.value = await value?.visit(pre, post, postBlock, state) ?? null
   }
 }
