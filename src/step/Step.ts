@@ -154,7 +154,7 @@ export default abstract class Step<TConf> {
 
     for (const variable of variables) {
       if (!state.alloc(variable, true, node)) {
-        state.log('redefined for generic variable:', variable)
+        state.debug('redefined for generic variable:', variable)
         continue
       }
 
@@ -173,7 +173,7 @@ export default abstract class Step<TConf> {
     if (variable == null) return
 
     if (!state.alloc(variable, true, node)) {
-      state.log('redefined for numeric variable:', variable)
+      state.debug('redefined for numeric variable:', variable)
       return
     }
 
@@ -187,7 +187,7 @@ export default abstract class Step<TConf> {
       if (!(param instanceof LuaIdentifier)) continue
 
       if (!state.alloc(param, true, node)) {
-        state.log('redefined parameter:', param)
+        state.debug('redefined parameter:', param)
         continue
       }
 
@@ -260,7 +260,7 @@ export default abstract class Step<TConf> {
 
     if (!(identifier instanceof LuaIdentifier)) return
 
-    if (isLocal && !state.alloc(identifier, false, node)) state.log('redefined local:', identifier)
+    if (isLocal && !state.alloc(identifier, false, node)) state.debug('redefined local:', identifier)
 
     if (!state.write(identifier, node, node)) {
       state.log('write failed:', identifier)
@@ -298,7 +298,7 @@ export default abstract class Step<TConf> {
       const varInit = init[i]
 
       // Declare variable
-      if (!state.alloc(varName, false, node)) state.log('redefined local:', varName)
+      if (!state.alloc(varName, false, node)) state.debug('redefined local:', varName)
 
       if (varInit == null) {
         state.debug('declare local:', varName)

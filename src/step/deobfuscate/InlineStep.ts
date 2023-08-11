@@ -100,17 +100,6 @@ export default class InlineStep extends Step<{}> {
     return null
   }
 
-  private addInlineNode(node: LuaBase, statement: LuaStatement, state: LuaState): void {
-    const { inlineNodes } = this
-
-    if (inlineNodes.includes(node)) return
-
-    state.log('add inline node:', node, 'statement:', statement)
-    inlineNodes.push(node)
-
-    this.iteration = 1
-  }
-
   private isScopeValid(parentNode: LuaBase, childNode: LuaBase, state: LuaState): boolean {
     childNode = parentNode instanceof LuaIdentifier ? (state.getStatement(parentNode) ?? childNode) : childNode
 
@@ -125,12 +114,23 @@ export default class InlineStep extends Step<{}> {
     return !childScope.isParent(parentScope)
   }
 
+  private addInlineNode(node: LuaBase, statement: LuaStatement, state: LuaState): void {
+    const { inlineNodes } = this
+
+    if (inlineNodes.includes(node)) return
+
+    state.debug('add inline node:', node, 'statement:', statement)
+    inlineNodes.push(node)
+
+    this.iteration = 1
+  }
+
   private consumeInlineNode(node: LuaBase, state: LuaState): boolean {
     const { inlineNodes } = this
 
     if (!inlineNodes.includes(node)) return false
 
-    state.log('consume inline node:', node)
+    state.debug('consume inline node:', node)
     inlineNodes.splice(inlineNodes.indexOf(node), 1)
 
     this.iteration = 1

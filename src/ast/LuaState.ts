@@ -253,8 +253,10 @@ export default class LuaState {
   }
 
   public log(msg: string, ...args: any[]): void {
+    const padding = IS_DEBUG ? ' '.repeat(this.depth * 2) : ''
     args = args.map(arg => arg?.toString(typeof arg === 'number' ? 10 : 0, true).split('\n')[0] ?? null)
-    console.log(`${' '.repeat(this.depth * 2)}${msg}`, ...args)
+
+    console.log(`${padding}${msg}`, ...args)
   }
 
   public debug(msg: string, ...args: any[]): void {
