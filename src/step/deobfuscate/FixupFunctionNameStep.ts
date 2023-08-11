@@ -1,5 +1,6 @@
 import LuaFunctionDeclaration from '@/ast/Expression/LuaFunctionDeclaration'
 import LuaIdentifier from '@/ast/Expression/LuaIdentifier'
+import LuaMemberExpression from '@/ast/Expression/LuaMemberExpression'
 import LuaBase from '@/ast/LuaBase'
 import LuaState from '@/ast/LuaState'
 import LuaAssignmentStatement from '@/ast/Statement/LuaAssignmentStatement'
@@ -27,7 +28,10 @@ export default class FixupFunctionNameStep extends Step<{}> {
     const varInit = init[0]
 
     // Check if name & init type is valid
-    if (!(varName instanceof LuaIdentifier) || !(varInit instanceof LuaFunctionDeclaration)) return null
+    if (
+      (!(varName instanceof LuaIdentifier) && !(varName instanceof LuaMemberExpression)) ||
+      !(varInit instanceof LuaFunctionDeclaration)
+    ) return null
 
     const before = node.toString(0, true)
 
