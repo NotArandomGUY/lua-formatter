@@ -58,26 +58,6 @@ export default class LuaScope {
     return statementList?.[statementList.length - 1] ?? null
   }
 
-  public getDeepestStatement(identifier: LuaIdentifier): LuaBase | null {
-    const statementList = this.statementMap.get(identifier.name)
-
-    if (statementList == null) return null
-
-    let maxDepth = -1
-    let maxStatement: LuaBase | null = null
-
-    for (const statement of statementList) {
-      const depth = statement.scope.getDepth()
-
-      if (depth <= maxDepth) continue
-
-      maxDepth = depth
-      maxStatement = statement
-    }
-
-    return maxStatement
-  }
-
   public isAllocated(identifier: LuaIdentifier): boolean {
     return this.referenceMap.has(identifier.name)
   }

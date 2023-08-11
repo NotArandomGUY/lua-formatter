@@ -185,25 +185,6 @@ export default class LuaState {
     return globalScope.getLastStatement(identifier)
   }
 
-  public getDeepestStatement(identifier: LuaIdentifier): LuaBase | null {
-    const { scope, stack, globalScope } = this
-
-    // Current scope
-    if (scope.isAllocated(identifier)) return scope.getDeepestStatement(identifier)
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return stackScope.getDeepestStatement(identifier)
-    }
-
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) return null
-
-    return globalScope.getDeepestStatement(identifier)
-  }
-
   public isAllocated(identifier: LuaIdentifier): boolean {
     const { scope, stack, globalScope } = this
 
