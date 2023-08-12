@@ -12,6 +12,8 @@ import StripDeadCodeStep from './step/deobfuscate/StripDeadCodeStep'
 import TableConstructorStep from './step/deobfuscate/TableConstructorStep'
 
 async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number): Promise<number> {
+  maxIteration = Math.max(32, maxIteration)
+
   switch (mode) {
     case 'obfuscate':
       return 0
