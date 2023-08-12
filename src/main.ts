@@ -4,12 +4,16 @@ import { exit } from 'process'
 import LuaBase from './ast/LuaBase'
 import LuaChunk from './ast/Node/LuaChunk'
 import { execCommand } from './lib/childProcess'
-import { FileReader, fileExists, writeFile } from './lib/fileSystem'
+import { FileReader, deleteFile, fileExists, writeFile } from './lib/fileSystem'
+import { xorShiftDecode } from './lib/xor'
 import Step from './step/Step'
 import FixupFunctionNameStep from './step/deobfuscate/FixupFunctionNameStep'
 import InlineStep from './step/deobfuscate/InlineStep'
 import StripDeadCodeStep from './step/deobfuscate/StripDeadCodeStep'
 import TableConstructorStep from './step/deobfuscate/TableConstructorStep'
+
+const SHELL_MAGIC = Buffer.from([0x57, 0x39, 0x14, 0x32])
+const LUA_MAGIC = Buffer.from([0x1B, 0x4C, 0x75, 0x61])
 
 async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number): Promise<number> {
   maxIteration = Math.max(32, maxIteration)
@@ -30,27 +34,50 @@ async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number)
   }
 }
 
-async function readLuacFile(dir: string, reader: FileReader, parser: Parser): Promise<number> {
-  const buf = reader.readBytes(0, reader.getSize())
+async function readLuacFile(dir: string, reader: FileReader, parser: Parser, isXorShift: boolean): Promise<number> {
+  let buf = reader.readBytes(0, reader.getSize())
 
   if (buf == null) return -1
+  if (isXorShift) buf = <Buffer>xorShiftDecode(buf, 0, true)
 
-  const decompilerPath = join(dir, `decompiler-${buf[4].toString(16).padStart(2, '0')}${buf[5].toString(16).padStart(2, '0')}.exe`)
+  const magic = buf.subarray(0, 4)
+
+  if (magic.compare(LUA_MAGIC) !== 0) {
+    console.log(`Invalid luac: ${magic.toString('hex').toUpperCase()}`)
+    return -1
+  }
+
+  const version = buf[4].toString(16).padStart(2, '0')
+  const format = buf[5].toString(16).padStart(2, '0')
+  const tmpPath = reader.getPath() + '.tmp'
+
+  const decompilerPath = join(dir, `decompiler-${version}${format}.exe`)
 
   if (!await fileExists(decompilerPath)) {
     console.log(`Failed to find decompiler at: ${decompilerPath}`)
     return -1
   }
 
-  const lines = (await execCommand(`"${decompilerPath.replace(/"/g, '\\"')}" "${reader.getPath().replace(/"/g, '\\"')}"`)).split('\n')
-  let lineCount = 0
+  await writeFile(tmpPath, buf)
 
-  for (const line of lines) {
-    parser.write(line + '\n')
-    lineCount++
+  try {
+    const lines = (await execCommand(`"${decompilerPath.replace(/"/g, '\\"')}" "${tmpPath.replace(/"/g, '\\"')}"`)).split('\n')
+    let lineCount = 0
+
+    if (lines[0]?.startsWith('Exception in')) {
+      console.log(lines.join('\n'))
+      return -1
+    }
+
+    for (const line of lines) {
+      parser.write(line + '\n')
+      lineCount++
+    }
+
+    return Math.ceil(lineCount / 10)
+  } finally {
+    await deleteFile(tmpPath)
   }
-
-  return Math.ceil(lineCount / 10)
 }
 
 async function readLuaFile(reader: FileReader, parser: Parser): Promise<number> {
@@ -68,9 +95,11 @@ async function readLuaFile(reader: FileReader, parser: Parser): Promise<number> 
 
 async function readFile(dir: string, reader: FileReader, parser: Parser): Promise<number> {
   const magic = reader.readBytes(0, 4)
-  const isLuac = magic != null && Buffer.compare(magic, Buffer.from([0x1B, 0x4C, 0x75, 0x61])) === 0
 
-  return isLuac ? readLuacFile(dir, reader, parser) : readLuaFile(reader, parser)
+  const isShell = magic != null && Buffer.compare(magic, SHELL_MAGIC) === 0
+  const isLuac = magic != null && Buffer.compare(magic, LUA_MAGIC) === 0
+
+  return (isShell || isLuac) ? readLuacFile(dir, reader, parser, isShell) : readLuaFile(reader, parser)
 }
 
 async function main(argv: string[]): Promise<number> {
