@@ -19,18 +19,26 @@ async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number)
   maxIteration = Math.max(32, maxIteration)
 
   switch (mode) {
-    case 'obfuscate':
+    case 'obfuscate': {
       return 0
-    case 'deobfuscate':
-      await Step.create(InlineStep).apply(chunk, maxIteration)
-      await Step.create(TableConstructorStep).apply(chunk, maxIteration)
+    }
+    case 'deobfuscate': {
+      let totalIteration = 0
+      do {
+        totalIteration = 0
+        totalIteration += await Step.create(InlineStep).apply(chunk, maxIteration)
+        totalIteration += await Step.create(TableConstructorStep).apply(chunk, maxIteration)
+      } while (totalIteration > 2)
+
       await Step.create(InlineStep).apply(chunk, maxIteration)
       await Step.create(FixupFunctionNameStep).apply(chunk, maxIteration)
       await Step.create(StripDeadCodeStep).apply(chunk, maxIteration)
       return 0
-    default:
+    }
+    default: {
       console.log(`Invalid mode: ${mode}`)
       return -1
+    }
   }
 }
 

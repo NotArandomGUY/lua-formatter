@@ -44,7 +44,7 @@ export default abstract class Step<TConf> {
     this.pendingRemoveNodes = []
   }
 
-  public async apply(ast: LuaChunk, maxIteration = 100): Promise<void> {
+  public async apply(ast: LuaChunk, maxIteration = 100): Promise<number> {
     const padding = '='.repeat(20)
 
     console.log(`${padding}[BEGIN ${this.constructor.name}]${padding}`)
@@ -59,6 +59,7 @@ export default abstract class Step<TConf> {
 
       console.log(`${padding}[IT${this.currentIteration.toString().padStart(3, '0')} ${this.constructor.name}]${padding}`)
 
+      ast.scope.clear()
       await ast.visit(
         this.preVisitInternal.bind(this),
         this.postVisitInternal.bind(this),
@@ -67,6 +68,8 @@ export default abstract class Step<TConf> {
     }
 
     console.log(`${padding}[ENDED ${this.constructor.name}]${padding}`)
+
+    return this.currentIteration
   }
 
   protected abstract preVisit(node: LuaBase, state: LuaState): LuaBase | null
@@ -137,7 +140,11 @@ export default abstract class Step<TConf> {
 
     let remain = pendingRemoveNodes.length
 
-    for (const node of removedNodes) state.log('removed node:', node, 'remain:', --remain)
+    state.log(`removing ${remain} nodes`)
+
+    for (const node of removedNodes) {
+      state.debug('removed node:', node, 'remain:', --remain)
+    }
 
     return body.filter(n => !removedNodes.includes(n))
   }

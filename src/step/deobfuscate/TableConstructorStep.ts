@@ -30,8 +30,11 @@ export default class TableConstructorStep extends Step<{}> {
     const varInit = init[0]
     const tableInfo = this.getTableConstructor(varName, state)
 
-    // Check if table constructor is valid
-    if (tableInfo == null) return null
+    // Ignore identifier value
+    if (varInit instanceof LuaIdentifier) return null
+
+    // Check if table constructor is valid & scope match
+    if (tableInfo == null || tableInfo.statement.scope !== scope) return null
 
     const { statement, table } = tableInfo
 
@@ -46,8 +49,12 @@ export default class TableConstructorStep extends Step<{}> {
         !(index instanceof LuaStringLiteral)
       ) return null
 
+      state.log('table assign index:', varName, 'value:', varInit)
+
       table.assignIndex(varName, varInit)
     } else if (varName instanceof LuaMemberExpression) {
+      state.log('table assign member:', varName, 'value:', varInit)
+
       table.assignMember(varName, varInit)
     } else {
       return null
