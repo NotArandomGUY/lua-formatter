@@ -69,7 +69,28 @@ async function readLuacFile(dir: string, reader: FileReader, parser: Parser, isX
   await writeFile(tmpPath, buf)
 
   try {
-    const lines = (await execCommand(`"${decompilerPath.replace(/"/g, '\\"')}" "${tmpPath.replace(/"/g, '\\"')}"`)).split('\n')
+    const chunks = await execCommand(`"${decompilerPath.replace(/"/g, '\\"')}" "${tmpPath.replace(/"/g, '\\"')}"`)
+    const lines: string[] = []
+
+    // Convert chunks to lines
+    let lineBuf = ''
+
+    for (const chunk of chunks) {
+      const lineSepPos = chunk.indexOf('\n')
+
+      if (lineSepPos >= 0) {
+        lineBuf += chunk.slice(0, lineSepPos)
+        lines.push(lineBuf)
+        lineBuf = chunk.slice(lineSepPos + 1)
+        continue
+      }
+
+      lineBuf += chunk
+    }
+
+    if (lineBuf.length > 0) lines.push(lineBuf)
+
+    // Read lines
     let lineCount = 0
 
     if (lines[0]?.startsWith('Exception in')) {
