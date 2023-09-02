@@ -7,6 +7,7 @@ import LuaLogicalExpression from '@/ast/Expression/LuaLogicalExpression'
 import LuaMemberExpression from '@/ast/Expression/LuaMemberExpression'
 import LuaUnaryExpression from '@/ast/Expression/LuaUnaryExpression'
 import LuaBase, { ICodeBlock } from '@/ast/LuaBase'
+import LuaScope from '@/ast/LuaScope'
 import LuaState from '@/ast/LuaState'
 import LuaChunk from '@/ast/Node/LuaChunk'
 import LuaElseifClause from '@/ast/Node/LuaElseifClause'
@@ -84,6 +85,22 @@ export default abstract class Step<TConf> {
     for (const node of nodes) {
       if (node == null || pendingRemoveNodes.includes(node)) continue
 
+      let scope: LuaScope | null = node.scope
+      let isRemoved = false
+
+      while (scope != null) {
+        if ((<LuaBase & ICodeBlock>scope.node).removeChild(node)) {
+          isRemoved = true
+
+          state.debug('removed node:', node)
+          break
+        }
+
+        scope = scope.parent
+      }
+
+      if (isRemoved) continue
+
       state.log('pending remove node:', node)
 
       pendingRemoveNodes.push(node)
@@ -133,14 +150,14 @@ export default abstract class Step<TConf> {
     let body = this.postVisitBlock(node, state)
 
     if (pendingRemoveNodes.length === 0) return body
-    if (body == null) body = [...node.body]
+    if (body == null) body = node.body.toArray()
 
     const removedNodes = body.filter(n => pendingRemoveNodes.includes(n))
     this.pendingRemoveNodes = pendingRemoveNodes.filter(n => !removedNodes.includes(n))
 
     let remain = pendingRemoveNodes.length
 
-    state.log(`removing ${remain} nodes`)
+    state.log(`removing ${remain} pending nodes`)
 
     for (const node of removedNodes) {
       state.debug('removed node:', node, 'remain:', --remain)

@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { ForGenericStatement } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -10,7 +11,7 @@ import LuaStatement from '../Node/LuaStatement'
 export default class LuaForGenericStatement extends LuaStatement<'ForGenericStatement'> implements ICodeBlock {
   public variables: LuaIdentifier[]
   public iterators: LuaExpression[]
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope) {
     super()
@@ -19,7 +20,7 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
 
     this.variables = []
     this.iterators = []
-    this.body = []
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -42,7 +43,7 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
 
     this.variables.splice(0)
     this.iterators.splice(0)
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -50,11 +51,15 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
   public fromJson(obj: ForGenericStatement): this {
     super.fromJson(obj)
 
+    const { scope, body: loopBody } = this
     const { variables, iterators, body } = obj
 
-    this.variables.push(...variables.map(i => LuaBase.createFromJson(i, this.scope)))
-    this.iterators.push(...iterators.map(e => LuaBase.createFromJson(e, this.scope.parent!)))
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    this.variables.push(...variables.map(i => LuaBase.createFromJson(i, scope)))
+    this.iterators.push(...iterators.map(e => LuaBase.createFromJson(e, scope.parent!)))
+
+    for (const statement of body) {
+      loopBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -81,6 +86,12 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
     return output
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, variables, iterators, body } = this
 
@@ -93,16 +104,23 @@ export default class LuaForGenericStatement extends LuaStatement<'ForGenericStat
     }
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

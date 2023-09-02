@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { ElseClause } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -7,14 +8,14 @@ import LuaState from '../LuaState'
 import LuaStatement from './LuaStatement'
 
 export default class LuaElseClause extends LuaBase<'ElseClause'> implements ICodeBlock {
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope) {
     super()
 
     this.scope.parent = parentScope
 
-    this.body = []
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -30,7 +31,7 @@ export default class LuaElseClause extends LuaBase<'ElseClause'> implements ICod
   public clear(): this {
     super.clear()
 
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -38,9 +39,12 @@ export default class LuaElseClause extends LuaBase<'ElseClause'> implements ICod
   public fromJson(obj: ElseClause): this {
     super.fromJson(obj)
 
+    const { scope, body: chunkBody } = this
     const { body } = obj
 
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    for (const statement of body) {
+      chunkBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -61,20 +65,33 @@ export default class LuaElseClause extends LuaBase<'ElseClause'> implements ICod
     return `${padding}else\n${body.map(s => s.toString(indent)).join('\n')}`
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, body } = this
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { Chunk } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -7,13 +8,13 @@ import LuaState from '../LuaState'
 import LuaStatement from './LuaStatement'
 
 export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
   public comments: string[]
 
   public constructor(scope?: LuaScope) {
     super(scope)
 
-    this.body = []
+    this.body = new List()
     this.comments = []
   }
 
@@ -28,7 +29,7 @@ export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
   }
 
   public clear(): this {
-    this.body.splice(0)
+    this.body.clear()
     this.comments.splice(0)
 
     return this
@@ -37,9 +38,13 @@ export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
   public fromJson(obj: Chunk): this {
     this.clear()
 
+    const { scope, body: chunkBody } = this
     const { body, comments } = obj
 
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    for (const statement of body) {
+      chunkBody.push(LuaBase.createFromJson(statement, scope))
+    }
+
     this.comments.push(...(comments ?? []))
 
     return this
@@ -60,12 +65,22 @@ export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
     return body.map(s => s.toString(indent)).join('\n')
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, body } = this
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {

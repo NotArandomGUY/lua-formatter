@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { Base } from 'luaparse'
 import type ASTMap from './ASTMap'
 import LuaIdentifier from './Expression/LuaIdentifier'
@@ -10,9 +11,10 @@ export type PostVisitCallback = ((node: LuaBase, state: LuaState) => LuaBase | n
 export type PostVisitBlockCallback = ((node: LuaBase & ICodeBlock, state: LuaState) => LuaBase[] | null) | null
 
 export interface ICodeBlock {
-  body: LuaStatement[]
+  body: List<LuaStatement>
 
   getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[]
+  removeChild(statement: LuaStatement): boolean
 }
 
 export interface ILocationInfo {

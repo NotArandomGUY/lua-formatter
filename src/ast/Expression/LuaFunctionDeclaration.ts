@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { FunctionDeclaration } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaBase, { ICodeBlock, PostVisitBlockCallback, PostVisitCallback, PreVisitCallback } from '../LuaBase'
@@ -12,7 +13,7 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
   public identifier: LuaIdentifier | LuaMemberExpression | null
   public isLocal: boolean
   public parameters: (LuaIdentifier | LuaVarargLiteral)[]
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope, body: LuaStatement[] = []) {
     super()
@@ -22,7 +23,7 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
     this.identifier = null
     this.isLocal = false
     this.parameters = []
-    this.body = body
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -41,7 +42,7 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
     this.identifier = null
     this.isLocal = false
     this.parameters.splice(0)
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -49,12 +50,16 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
   public fromJson(obj: FunctionDeclaration): this {
     super.fromJson(obj)
 
+    const { scope, body: funcBody } = this
     const { identifier, isLocal, parameters, body } = obj
 
-    this.identifier = identifier == null ? null : LuaBase.createFromJson(identifier, this.scope)
+    this.identifier = identifier == null ? null : LuaBase.createFromJson(identifier, scope)
     this.isLocal = isLocal
-    this.parameters.push(...parameters.map(p => LuaBase.createFromJson(p, this.scope)))
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    this.parameters.push(...parameters.map(p => LuaBase.createFromJson(p, scope)))
+
+    for (const statement of body) {
+      funcBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -87,6 +92,12 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
     return output
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, identifier, parameters, body } = this
 
@@ -97,16 +108,23 @@ export default class LuaFunctionDeclaration extends LuaStatement<'FunctionDeclar
     }
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

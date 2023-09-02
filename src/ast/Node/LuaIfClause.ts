@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { IfClause } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -9,7 +10,7 @@ import LuaStatement from './LuaStatement'
 
 export default class LuaIfClause extends LuaBase<'IfClause'> implements ICodeBlock {
   public condition: LuaExpression | null
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope) {
     super()
@@ -17,7 +18,7 @@ export default class LuaIfClause extends LuaBase<'IfClause'> implements ICodeBlo
     this.scope.parent = parentScope
 
     this.condition = null
-    this.body = []
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -34,7 +35,7 @@ export default class LuaIfClause extends LuaBase<'IfClause'> implements ICodeBlo
     super.clear()
 
     this.condition = null
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -42,10 +43,14 @@ export default class LuaIfClause extends LuaBase<'IfClause'> implements ICodeBlo
   public fromJson(obj: IfClause): this {
     super.fromJson(obj)
 
+    const { scope, body: chunkBody } = this
     const { condition, body } = obj
 
-    this.condition = LuaBase.createFromJson(condition, this.scope.parent!)
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    this.condition = LuaBase.createFromJson(condition, scope.parent!)
+
+    for (const statement of body) {
+      chunkBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -71,22 +76,35 @@ export default class LuaIfClause extends LuaBase<'IfClause'> implements ICodeBlo
     return `${padding}if ${condition.toString(indent)} then\n${body.map(s => s.toString(indent)).join('\n')}`
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, condition, body } = this
 
     this.condition = await condition?.visit(pre, post, postBlock, state) ?? null
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

@@ -314,7 +314,7 @@ export default class LuaState {
       return
     }
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 500; i++) {
       const callInfo = callQueue.shift()
 
       // Stop if call queue is empty

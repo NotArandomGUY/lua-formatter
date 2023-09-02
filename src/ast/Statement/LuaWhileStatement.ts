@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { WhileStatement } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -9,7 +10,7 @@ import LuaStatement from '../Node/LuaStatement'
 
 export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> implements ICodeBlock {
   public condition: LuaExpression | null
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope) {
     super()
@@ -17,7 +18,7 @@ export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> im
     this.scope.parent = parentScope
 
     this.condition = null
-    this.body = []
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -34,7 +35,7 @@ export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> im
     super.clear()
 
     this.condition = null
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -42,10 +43,14 @@ export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> im
   public fromJson(obj: WhileStatement): this {
     super.fromJson(obj)
 
+    const { scope, body: loopBody } = this
     const { condition, body } = obj
 
-    this.condition = LuaBase.createFromJson(condition, this.scope.parent!)
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    this.condition = LuaBase.createFromJson(condition, scope.parent!)
+
+    for (const statement of body) {
+      loopBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -75,22 +80,35 @@ export default class LuaWhileStatement extends LuaStatement<'WhileStatement'> im
     return output
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, condition, body } = this
 
     this.condition = await condition?.visit(pre, post, postBlock, state) ?? null
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

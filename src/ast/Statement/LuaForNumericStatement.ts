@@ -1,3 +1,4 @@
+import List from '@/lib/list'
 import { ForNumericStatement } from 'luaparse'
 import ASTMap from '../ASTMap'
 import LuaIdentifier from '../Expression/LuaIdentifier'
@@ -12,7 +13,7 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
   public start: LuaExpression | null
   public end: LuaExpression | null
   public step: LuaExpression | null
-  public body: LuaStatement[]
+  public body: List<LuaStatement>
 
   public constructor(parentScope: LuaScope) {
     super()
@@ -23,7 +24,7 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     this.start = null
     this.end = null
     this.step = null
-    this.body = []
+    this.body = new List()
   }
 
   public getStatementByType<TType extends keyof typeof ASTMap, TAst extends typeof LuaStatement<TType>>(type: TAst): InstanceType<TAst>[] {
@@ -51,7 +52,7 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     this.start = null
     this.end = null
     this.step = null
-    this.body.splice(0)
+    this.body.clear()
 
     return this
   }
@@ -59,13 +60,17 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
   public fromJson(obj: ForNumericStatement): this {
     super.fromJson(obj)
 
+    const { scope, body: loopBody } = this
     const { variable, start, end, step, body } = obj
 
-    this.variable = LuaBase.createFromJson(variable, this.scope)
-    this.start = LuaBase.createFromJson(start, this.scope)
-    this.end = LuaBase.createFromJson(end, this.scope)
-    this.step = step == null ? null : LuaBase.createFromJson(step, this.scope)
-    this.body.push(...body.map(s => LuaBase.createFromJson(s, this.scope)))
+    this.variable = LuaBase.createFromJson(variable, scope)
+    this.start = LuaBase.createFromJson(start, scope)
+    this.end = LuaBase.createFromJson(end, scope)
+    this.step = step == null ? null : LuaBase.createFromJson(step, scope)
+
+    for (const statement of body) {
+      loopBody.push(LuaBase.createFromJson(statement, scope))
+    }
 
     return this
   }
@@ -104,6 +109,12 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     return output
   }
 
+  public removeChild(statement: LuaStatement): boolean {
+    const { body } = this
+
+    return body.remove(body.indexOf(statement)) != null
+  }
+
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, variable, start, end, step, body } = this
 
@@ -113,16 +124,23 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     this.step = await step?.visit(pre, post, postBlock, state) ?? null
 
     state.push(scope)
-    for (let i = 0; i < body.length; i++) {
-      body[i] = await body[i].visit(pre, post, postBlock, state)
+
+    let curNode = body.head
+
+    while (curNode != null) {
+      curNode.value = await curNode.value.visit(pre, post, postBlock, state)
+      curNode = curNode.getNext()
     }
 
     if (typeof postBlock === 'function') {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()
