@@ -61,7 +61,7 @@ export default class LuaLocalStatement extends LuaStatement<'LocalStatement'> {
     const padding = isInline ? '' : ' '.repeat(indent * scope.getDepth())
 
     let output = `${padding}local ${variables.map(i => i.toString()).join(', ')}`
-    if (init.length > 0) output += ` = ${init.map(e => e.toString(indent)).join(', ')}`
+    if (init.length > 0) output += ` = ${init.map(e => e.toString(indent, true)).join(', ')}`
 
     return output
   }

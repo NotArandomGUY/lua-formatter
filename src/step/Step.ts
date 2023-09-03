@@ -219,16 +219,24 @@ export default abstract class Step<TConf> {
   }
 
   private internalVisitPreForNumericStatement(node: LuaForNumericStatement, state: LuaState): void {
-    const { scope, variable } = node
+    const { scope, variable, start, step, end } = node
 
-    if (variable == null) return
-
-    if (!scope.alloc(variable, true, node)) {
-      state.debug('redefined for numeric variable:', variable)
-      return
+    if (variable != null) {
+      if (scope.alloc(variable, true, node)) {
+        state.debug('declare for numeric variable:', variable)
+      } else {
+        state.debug('redefined for numeric variable:', variable)
+      }
     }
 
-    state.debug('declare for numeric variable:', variable)
+    // Bump start identifier reference count
+    if (start instanceof LuaIdentifier) state.read(start, node)
+
+    // Bump step identifier reference count
+    if (step instanceof LuaIdentifier) state.read(step, node)
+
+    // Bump end identifier reference count
+    if (end instanceof LuaIdentifier) state.read(end, node)
   }
 
   private internalVisitPreFunctionDeclaration(node: LuaFunctionDeclaration, state: LuaState): void {
@@ -274,6 +282,10 @@ export default abstract class Step<TConf> {
       const varName = variables[i]
       const varInit = init[i]
 
+      // Bump init identifier reference count
+      if (varInit instanceof LuaIdentifier) state.read(varInit, node)
+
+      // Write value of identifier & reset reference count
       if (varName instanceof LuaIdentifier) {
         if (!state.write(varName, varInit, node)) {
           state.log('write failed:', varName)
@@ -282,9 +294,6 @@ export default abstract class Step<TConf> {
 
         state.debug('assign value to variable:', varInit, '->', varName)
       }
-
-      // Bump init identifier reference count
-      if (varInit instanceof LuaIdentifier) state.read(varInit, node)
     }
   }
 

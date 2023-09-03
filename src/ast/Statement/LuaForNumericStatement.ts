@@ -81,13 +81,12 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     if (variable == null) throw new Error('Invalid variable identifier')
     if (start == null) throw new Error('Invalid start expression')
     if (end == null) throw new Error('Invalid end expression')
-    if (step == null) throw new Error('Invalid step expression')
 
     return Object.assign(super.toJson(), <ForNumericStatement>{
       variable: variable.toJson(),
       start: start.toJson(),
       end: end.toJson(),
-      step: step.toJson(),
+      step: step?.toJson() ?? null,
       body: body.map(s => s.toJson())
     })
   }
@@ -98,11 +97,14 @@ export default class LuaForNumericStatement extends LuaStatement<'ForNumericStat
     if (variable == null) throw new Error('Invalid variable identifier')
     if (start == null) throw new Error('Invalid start expression')
     if (end == null) throw new Error('Invalid end expression')
-    if (step == null) throw new Error('Invalid step expression')
 
     const padding = isInline ? '' : ' '.repeat(indent * (scope.getDepth() - 1))
 
-    let output = `${padding}for ${variable.toString()} = ${start.toString(indent)}, ${end.toString(indent)}, ${step.toString(indent)} do\n`
+    let output = `${padding}for ${variable.toString()} = ${start.toString(indent)}, ${end.toString(indent)}`
+
+    if (step != null) output += `, ${step.toString(indent)}`
+
+    output += ' do\n'
     output += body.map(s => s.toString(indent)).join('\n')
     output += `\n${padding}end`
 

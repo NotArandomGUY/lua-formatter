@@ -74,6 +74,7 @@ export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
     const { scope, body } = this
 
+    scope.clear()
     state.push(scope)
 
     let curNode = body.head

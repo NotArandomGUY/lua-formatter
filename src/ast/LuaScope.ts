@@ -105,7 +105,8 @@ export default class LuaScope {
     statementMap.set(name, [])
 
     if (statement != null) statementMap.get(name)?.push(statement)
-    return isRedefined
+
+    return !isRedefined
   }
 
   public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, statement?: LuaBase): T | null {

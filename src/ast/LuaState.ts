@@ -45,8 +45,6 @@ export default class LuaState {
     this.stack.push(this.scope)
     this.scope = scope
     this.depth = scope.getDepth()
-
-    scope.clear()
   }
 
   public pop(): void {
