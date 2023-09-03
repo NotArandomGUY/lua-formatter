@@ -6,6 +6,7 @@ import LuaExpression from '../Node/LuaExpression'
 import LuaTableKey from '../Node/LuaTableKey'
 import LuaTableKeyString from '../Node/LuaTableKeyString'
 import LuaTableValue from '../Node/LuaTableValue'
+import LuaFunctionDeclaration from './LuaFunctionDeclaration'
 import LuaIdentifier from './LuaIdentifier'
 import LuaIndexExpression from './LuaIndexExpression'
 import LuaMemberExpression from './LuaMemberExpression'
@@ -46,6 +47,12 @@ export default class LuaTableConstructorExpression extends LuaExpression<'TableC
 
     const field = new LuaTableKey(scope)
 
+    if (value instanceof LuaFunctionDeclaration || value instanceof LuaTableConstructorExpression) {
+      value.scope.parent = scope
+    } else {
+      value.scope = scope
+    }
+
     field.key = index
     field.value = value
 
@@ -59,6 +66,12 @@ export default class LuaTableConstructorExpression extends LuaExpression<'TableC
     if (identifier == null) throw new Error('Invalid identifier')
 
     const field = new LuaTableKeyString(scope)
+
+    if (value instanceof LuaFunctionDeclaration || value instanceof LuaTableConstructorExpression) {
+      value.scope.parent = scope
+    } else {
+      value.scope = scope
+    }
 
     field.key = identifier
     field.value = value
