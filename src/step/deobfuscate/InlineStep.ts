@@ -1,14 +1,10 @@
 import LuaBinaryExpression from '@/ast/Expression/LuaBinaryExpression'
-import LuaBooleanLiteral from '@/ast/Expression/LuaBooleanLiteral'
 import LuaCallExpression from '@/ast/Expression/LuaCallExpression'
 import LuaFunctionDeclaration from '@/ast/Expression/LuaFunctionDeclaration'
 import LuaIdentifier from '@/ast/Expression/LuaIdentifier'
 import LuaIndexExpression from '@/ast/Expression/LuaIndexExpression'
 import LuaMemberExpression from '@/ast/Expression/LuaMemberExpression'
-import LuaNilLiteral from '@/ast/Expression/LuaNilLiteral'
-import LuaNumericLiteral from '@/ast/Expression/LuaNumericLiteral'
 import LuaStringCallExpression from '@/ast/Expression/LuaStringCallExpression'
-import LuaStringLiteral from '@/ast/Expression/LuaStringLiteral'
 import LuaTableCallExpression from '@/ast/Expression/LuaTableCallExpression'
 import LuaTableConstructorExpression from '@/ast/Expression/LuaTableConstructorExpression'
 import LuaUnaryExpression from '@/ast/Expression/LuaUnaryExpression'
@@ -325,6 +321,12 @@ export default class InlineStep extends Step<{}> {
 
     // Avoid resolve in loop statement
     if (statement != null && this.isWithinLoop(statement.scope, scope)) return identifier
+
+    // Check if assign statement has exactly 1 variables
+    if (
+      (statement instanceof LuaAssignmentStatement || statement instanceof LuaLocalStatement) &&
+      statement.variables.length !== 1
+    ) return identifier
 
     // Consume inline node if exists
     this.consumeInlineNode(value, node, state)
