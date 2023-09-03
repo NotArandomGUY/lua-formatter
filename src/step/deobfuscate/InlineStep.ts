@@ -40,11 +40,12 @@ export default class InlineStep extends Step<{}> {
     this.inlineNodes = []
   }
 
-  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null { // NOSONAR
     if (node instanceof LuaAssignmentStatement) this.visitPreAssignmentStatement(node, state)
     else if (node instanceof LuaBinaryExpression) this.visitPreBinaryExpression(node, state)
     else if (node instanceof LuaCallExpression) this.visitPreCallExpression(node, state)
     else if (node instanceof LuaElseifClause) this.visitConditionStatement(node, state)
+    else if (node instanceof LuaFunctionDeclaration) this.visitPreFunctionDeclaration(node, state)
     else if (node instanceof LuaIfClause) this.visitConditionStatement(node, state)
     else if (node instanceof LuaIndexExpression) this.visitPreIndexExpression(node, state)
     else if (node instanceof LuaMemberExpression) this.visitPreBaseExpression(node, state)
@@ -171,6 +172,40 @@ export default class InlineStep extends Step<{}> {
     return true
   }
 
+  private inlinePrevIdentifier(identifier: LuaIdentifier, state: LuaState): void {
+    const isGlobal = state.isGlobal(identifier)
+    const refCount = state.getReferenceCount(identifier)
+    const lastRef = state.getLastReference(identifier)
+    const prevStatement = state.getLastStatement(identifier)
+
+    // Add previous value as inline node if variable is reassigned with 1 reference
+    // Inline condition: not global & exactly 1 reference & has last reference & has prev statement
+    if (isGlobal || refCount !== 1 || lastRef == null || prevStatement == null) return
+
+    // Check if statement type is local or assign statement
+    if (prevStatement instanceof LuaLocalStatement || prevStatement instanceof LuaAssignmentStatement) {
+      const { variables, init } = prevStatement
+
+      const varName = variables[0]
+      const varInit = init[0]
+
+      // Check if type is valid and init do not reference itself
+      if (
+        varName != null &&
+        varInit != null &&
+        (!(varName instanceof LuaIdentifier) || !varInit.hasReference(varName))
+      ) {
+        this.addInlineNode(varInit, lastRef, state)
+        return
+      }
+    }
+
+    // Check if statement type is function declaration
+    if (prevStatement instanceof LuaFunctionDeclaration) {
+      this.addInlineNode(prevStatement, lastRef, state)
+    }
+  }
+
   private resolveInline<T extends LuaBase | null>(node: LuaBase, identifier: T, state: LuaState, filter: (typeof LuaBase<any>)[]): T {
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
@@ -287,33 +322,17 @@ export default class InlineStep extends Step<{}> {
     }
   }
 
+  private visitPreFunctionDeclaration(node: LuaFunctionDeclaration, state: LuaState): void {
+    const { identifier } = node
+
+    // Check if function has identifier & type is valid
+    if (identifier == null || !(identifier instanceof LuaIdentifier)) return
+
+    this.inlinePrevIdentifier(identifier, state)
+  }
+
   private visitPreIdentifierAssignment(identifier: LuaIdentifier, init: LuaExpression, state: LuaState): void {
-    const isGlobal = state.isGlobal(identifier)
-    const refCount = state.getReferenceCount(identifier)
-    const lastRef = state.getLastReference(identifier)
-    const prevStatement = state.getLastStatement(identifier)
-
-    // Add previous value as inline node if variable is reassigned with 1 reference
-    // Inline condition: not global & exactly 1 reference & has last reference & statement type is local or assign statement
-    if (
-      !isGlobal && refCount === 1 && lastRef != null && prevStatement != null &&
-      (prevStatement instanceof LuaLocalStatement || prevStatement instanceof LuaAssignmentStatement)
-    ) {
-      const { variables, init } = prevStatement
-
-      const varName = variables[0]
-      const varInit = init[0]
-
-      // Check if type is valid and init do not reference itself
-      if (
-        varName != null &&
-        varInit != null &&
-        (!(varName instanceof LuaIdentifier) || !varInit.hasReference(varName))
-      ) {
-        this.addInlineNode(varInit, lastRef, state)
-        return
-      }
-    }
+    this.inlinePrevIdentifier(identifier, state)
 
     if (init instanceof LuaBinaryExpression) {
       this.reassignBinaryExpression(init, identifier, state)
