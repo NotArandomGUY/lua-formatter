@@ -45,6 +45,7 @@ export default class InlineStep extends Step<{}> {
     else if (node instanceof LuaBinaryExpression) this.visitPreBinaryExpression(node, state)
     else if (node instanceof LuaCallExpression) this.visitPreCallExpression(node, state)
     else if (node instanceof LuaElseifClause) this.visitConditionStatement(node, state)
+    else if (node instanceof LuaForGenericStatement) this.visitPreForGenericStatement(node, state)
     else if (node instanceof LuaForNumericStatement) this.visitPreForNumericStatement(node, state)
     else if (node instanceof LuaFunctionDeclaration) this.visitPreFunctionDeclaration(node, state)
     else if (node instanceof LuaIfClause) this.visitConditionStatement(node, state)
@@ -217,6 +218,46 @@ export default class InlineStep extends Step<{}> {
     }
   }
 
+  private resolveIdentifiers(identifiers: LuaBase[], state: LuaState): void {
+    for (let i = 0; i < identifiers.length; i++) {
+      const identifier = identifiers[i]
+
+      // Check if identifier type is valid
+      if (!(identifier instanceof LuaIdentifier)) continue
+
+      const statement = state.getLastStatement(identifier)
+
+      // Check if identifier has statement & type is local or assign statement
+      if (!(statement instanceof LuaLocalStatement || statement instanceof LuaAssignmentStatement)) continue
+
+      const { variables } = statement
+      const section = identifiers.slice(i, i + variables.length)
+
+      // Check if statement has more than 1 variables & identifiers size is valid &
+      // Check if variables & identifiers type is valid
+      if (
+        variables.length <= 1 || section.length !== variables.length ||
+        variables.find(variable => !(variable instanceof LuaIdentifier)) || section.find(identifier => !(identifier instanceof LuaIdentifier))
+      ) continue
+
+      state.debug('try resolve identifiers:', identifiers.map(i => i.toString()).join(', '), 'variables:', variables.map(v => v.toString()).join(', '))
+
+      // Check if identifiers match
+      if (variables.find((variable, j) => !(<LuaIdentifier>variable).isMatch(<LuaIdentifier>section[j]))) continue
+
+      // Remove assign statement
+      if (!(statement instanceof LuaLocalStatement) || statement.variables.length === variables.length) this.removeNode(state, statement)
+
+      // Get value of variable
+      const value = state.read(identifier)
+
+      state.log('resolve identifiers:', variables.map(variable => variable.toString()).join(', '), '->', value)
+
+      // Replace identifiers with value
+      identifiers.splice(i, variables.length, value)
+    }
+  }
+
   private resolveInline<T extends LuaBase | null>(node: LuaBase, identifier: T, state: LuaState, filter: (typeof LuaBase<any>)[]): T {
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
@@ -328,9 +369,17 @@ export default class InlineStep extends Step<{}> {
 
     node.base = this.resolveInline(node, base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
 
+    this.resolveIdentifiers(args, state)
+
     for (let i = 0; i < args.length; i++) {
       args[i] = this.resolveInline(node, args[i], state, [])
     }
+  }
+
+  private visitPreForGenericStatement(node: LuaForGenericStatement, state: LuaState): void {
+    const { iterators } = node
+
+    this.resolveIdentifiers(iterators, state)
   }
 
   private visitPreForNumericStatement(node: LuaForNumericStatement, state: LuaState): void {
