@@ -273,9 +273,6 @@ export default class InlineStep extends Step<{}> {
     // Check if scope is valid
     if (!this.isScopeValid(node.scope, identifier, state)) return identifier
 
-    // Try to consume inline node
-    if (!this.consumeInlineNode(value, node, state)) return identifier
-
     // Get assign statement
     const statement = state.getLastStatement(identifier)
 
@@ -284,6 +281,9 @@ export default class InlineStep extends Step<{}> {
       (statement instanceof LuaAssignmentStatement || statement instanceof LuaLocalStatement) &&
       statement.variables.length !== 1
     ) return identifier
+
+    // Try to consume inline node
+    if (!this.consumeInlineNode(value, node, state)) return identifier
 
     // Remove assign statement
     if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
