@@ -45,6 +45,7 @@ export default class InlineStep extends Step<{}> {
     else if (node instanceof LuaBinaryExpression) this.visitPreBinaryExpression(node, state)
     else if (node instanceof LuaCallExpression) this.visitPreCallExpression(node, state)
     else if (node instanceof LuaElseifClause) this.visitConditionStatement(node, state)
+    else if (node instanceof LuaForNumericStatement) this.visitPreForNumericStatement(node, state)
     else if (node instanceof LuaFunctionDeclaration) this.visitPreFunctionDeclaration(node, state)
     else if (node instanceof LuaIfClause) this.visitConditionStatement(node, state)
     else if (node instanceof LuaIndexExpression) this.visitPreIndexExpression(node, state)
@@ -330,6 +331,14 @@ export default class InlineStep extends Step<{}> {
     for (let i = 0; i < args.length; i++) {
       args[i] = this.resolveInline(node, args[i], state, [])
     }
+  }
+
+  private visitPreForNumericStatement(node: LuaForNumericStatement, state: LuaState): void {
+    const { start, end, step } = node
+
+    node.start = this.resolveInline(node, start, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.end = this.resolveInline(node, end, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.step = this.resolveInline(node, step, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
   }
 
   private visitPreFunctionDeclaration(node: LuaFunctionDeclaration, state: LuaState): void {
