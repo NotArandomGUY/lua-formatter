@@ -279,8 +279,14 @@ export default class InlineStep extends Step<{}> {
     // Get assign statement
     const statement = state.getLastStatement(identifier)
 
+    // Check if assign statement has exactly 1 variables
+    if (
+      (statement instanceof LuaAssignmentStatement || statement instanceof LuaLocalStatement) &&
+      statement.variables.length !== 1
+    ) return identifier
+
     // Remove assign statement
-    if (!(statement instanceof LuaLocalStatement) || statement.variables.length === 1) this.removeNode(state, statement)
+    if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
 
     state.log('resolve inline:', identifier, '->', value)
 
@@ -332,7 +338,7 @@ export default class InlineStep extends Step<{}> {
     this.consumeInlineNode(value, node, state)
 
     // Remove assign statement
-    if (!(statement instanceof LuaLocalStatement) || statement.variables.length === 1) this.removeNode(state, statement)
+    if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
 
     state.log('resolve reassign:', identifier, '->', value)
 
