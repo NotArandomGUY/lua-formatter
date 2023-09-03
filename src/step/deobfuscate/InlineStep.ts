@@ -99,22 +99,25 @@ export default class InlineStep extends Step<{}> {
     return statementScope.isChild(scope)
   }
 
-  private isLiteralInLoop(node: LuaBase, value: LuaBase): boolean {
-    const scopeNode = node.scope.node
+  private isWithinLoop(srcScope: LuaScope, dstScope: LuaScope): boolean {
+    if (!srcScope.isChild(dstScope)) return false
 
-    return (
-      (
-        scopeNode instanceof LuaForGenericStatement ||
-        scopeNode instanceof LuaForNumericStatement ||
-        scopeNode instanceof LuaRepeatStatement ||
-        scopeNode instanceof LuaWhileStatement
-      ) && (
-        value instanceof LuaBooleanLiteral ||
-        value instanceof LuaNilLiteral ||
-        value instanceof LuaNumericLiteral ||
-        value instanceof LuaStringLiteral
-      )
-    )
+    let curScope: LuaScope | null = dstScope
+
+    while (curScope != null && curScope !== srcScope) {
+      const curNode = curScope.node
+
+      if (
+        curNode instanceof LuaForGenericStatement ||
+        curNode instanceof LuaForNumericStatement ||
+        curNode instanceof LuaRepeatStatement ||
+        curNode instanceof LuaWhileStatement
+      ) return true
+
+      curScope = curScope.parent
+    }
+
+    return false
   }
 
   private isStatementAwaitInline(statement: LuaStatement): boolean {
@@ -297,6 +300,8 @@ export default class InlineStep extends Step<{}> {
   }
 
   private resolveReassign<T extends LuaBase | null>(node: LuaBase, identifier: T, variable: LuaIdentifier, state: LuaState, filter: (typeof LuaBase<any>)[]): T {
+    const { scope } = node
+
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
 
@@ -313,16 +318,16 @@ export default class InlineStep extends Step<{}> {
     if (filter.find(type => value instanceof type) != null || this.isStatementAwaitInline(value)) return identifier
 
     // Check if scope is valid
-    if (!this.isScopeValid(node.scope, identifier, state)) return identifier
-
-    // Avoid resolve literal in loop statement
-    if (this.isLiteralInLoop(node, value)) return identifier
-
-    // Consume inline node if exists
-    this.consumeInlineNode(value, node, state)
+    if (!this.isScopeValid(scope, identifier, state)) return identifier
 
     // Get assign statement
     const statement = state.getLastStatement(identifier)
+
+    // Avoid resolve in loop statement
+    if (statement != null && this.isWithinLoop(statement.scope, scope)) return identifier
+
+    // Consume inline node if exists
+    this.consumeInlineNode(value, node, state)
 
     // Remove assign statement
     if (!(statement instanceof LuaLocalStatement) || statement.variables.length === 1) this.removeNode(state, statement)
@@ -332,7 +337,7 @@ export default class InlineStep extends Step<{}> {
     this.isChanged = true
 
     // Clone value
-    value = value.clone(node.scope)
+    value = value.clone(scope)
 
     // Strip function identifier
     if (value instanceof LuaFunctionDeclaration) value.identifier = null
