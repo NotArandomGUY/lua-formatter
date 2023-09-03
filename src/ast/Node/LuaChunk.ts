@@ -87,8 +87,11 @@ export default class LuaChunk extends LuaBase<'Chunk'> implements ICodeBlock {
       const newBody = postBlock(this, state)
 
       if (newBody != null) {
-        body.splice(0)
-        body.push(...newBody)
+        body.clear()
+
+        for (const statement of newBody) {
+          body.push(statement)
+        }
       }
     }
     state.pop()

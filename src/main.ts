@@ -23,14 +23,13 @@ async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number)
       return 0
     }
     case 'deobfuscate': {
-      let totalIteration = 0
+      let isChanged = false
       do {
-        totalIteration = 0
-        totalIteration += await Step.create(InlineStep).apply(chunk, maxIteration)
-        totalIteration += await Step.create(TableConstructorStep).apply(chunk, maxIteration)
-      } while (totalIteration > 2)
+        isChanged = false
+        isChanged ||= await Step.create(InlineStep).apply(chunk, maxIteration)
+        isChanged ||= await Step.create(TableConstructorStep).apply(chunk, maxIteration)
+      } while (isChanged)
 
-      await Step.create(InlineStep).apply(chunk, maxIteration)
       await Step.create(FixupFunctionNameStep).apply(chunk, maxIteration)
       await Step.create(StripDeadCodeStep).apply(chunk, maxIteration)
       return 0

@@ -63,8 +63,10 @@ export default class TableConstructorStep extends Step<{}> {
     // Remove table constructor statement
     this.removeNode(state, statement)
 
+    this.isChanged = true
+
     // Replace with table constructor statement
-    return statement.clone(scope)
+    return statement
   }
 
   protected postVisit(node: LuaBase, state: LuaState): LuaBase | null {

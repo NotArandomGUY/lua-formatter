@@ -198,6 +198,8 @@ export default class InlineStep extends Step<{}> {
 
     state.log('resolve inline:', identifier, '->', value)
 
+    this.isChanged = true
+
     // Clone value
     value = value.clone(node.scope)
 
@@ -239,6 +241,8 @@ export default class InlineStep extends Step<{}> {
     if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
 
     state.log('resolve reassign:', identifier, '->', value)
+
+    this.isChanged = true
 
     // Clone value
     value = value.clone(node.scope)

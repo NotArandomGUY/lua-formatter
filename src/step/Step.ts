@@ -10,12 +10,14 @@ import LuaBase, { ICodeBlock } from '@/ast/LuaBase'
 import LuaScope from '@/ast/LuaScope'
 import LuaState from '@/ast/LuaState'
 import LuaChunk from '@/ast/Node/LuaChunk'
+import LuaElseClause from '@/ast/Node/LuaElseClause'
 import LuaElseifClause from '@/ast/Node/LuaElseifClause'
 import LuaIfClause from '@/ast/Node/LuaIfClause'
 import LuaTableKey from '@/ast/Node/LuaTableKey'
 import LuaTableKeyString from '@/ast/Node/LuaTableKeyString'
 import LuaTableValue from '@/ast/Node/LuaTableValue'
 import LuaAssignmentStatement from '@/ast/Statement/LuaAssignmentStatement'
+import LuaDoStatement from '@/ast/Statement/LuaDoStatement'
 import LuaForGenericStatement from '@/ast/Statement/LuaForGenericStatement'
 import LuaForNumericStatement from '@/ast/Statement/LuaForNumericStatement'
 import LuaIfStatement from '@/ast/Statement/LuaIfStatement'
@@ -32,6 +34,7 @@ export default abstract class Step<TConf> {
   protected config: TConf
   protected iteration: number
   protected currentIteration: number
+  protected isChanged: boolean
 
   private pendingRemoveNodes: LuaBase[]
 
@@ -41,14 +44,17 @@ export default abstract class Step<TConf> {
     this.config = config
     this.iteration = 1
     this.currentIteration = 0
+    this.isChanged = false
 
     this.pendingRemoveNodes = []
   }
 
-  public async apply(ast: LuaChunk, maxIteration = 100): Promise<number> {
+  public async apply(ast: LuaChunk, maxIteration = 100): Promise<boolean> {
     const padding = '='.repeat(20)
 
     console.log(`${padding}[BEGIN ${this.constructor.name}]${padding}`)
+
+    this.isChanged = false
 
     while (this.iteration-- > 0) {
       // Hard crash when getting stuck
@@ -70,7 +76,7 @@ export default abstract class Step<TConf> {
 
     console.log(`${padding}[ENDED ${this.constructor.name}]${padding}`)
 
-    return this.currentIteration
+    return this.isChanged
   }
 
   protected abstract preVisit(node: LuaBase, state: LuaState): LuaBase | null
@@ -89,10 +95,27 @@ export default abstract class Step<TConf> {
       let isRemoved = false
 
       while (scope != null) {
-        if ((<LuaBase & ICodeBlock>scope.node).removeChild(node)) {
+        const scopeNode = scope.node
+
+        if (
+          (
+            scopeNode instanceof LuaFunctionDeclaration ||
+            scopeNode instanceof LuaChunk ||
+            scopeNode instanceof LuaElseClause ||
+            scopeNode instanceof LuaElseifClause ||
+            scopeNode instanceof LuaIfClause ||
+            scopeNode instanceof LuaDoStatement ||
+            scopeNode instanceof LuaForGenericStatement ||
+            scopeNode instanceof LuaForNumericStatement ||
+            scopeNode instanceof LuaRepeatStatement ||
+            scopeNode instanceof LuaWhileStatement
+          ) &&
+          scopeNode.removeChild(node)
+        ) {
+          this.isChanged = true
           isRemoved = true
 
-          state.debug('removed node:', node)
+          state.log('removed node:', node)
           break
         }
 
@@ -153,11 +176,15 @@ export default abstract class Step<TConf> {
     if (body == null) body = node.body.toArray()
 
     const removedNodes = body.filter(n => pendingRemoveNodes.includes(n))
+
+    if (removedNodes.length === 0) return body
+
     this.pendingRemoveNodes = pendingRemoveNodes.filter(n => !removedNodes.includes(n))
+    this.isChanged = true
+
+    state.log(`removed ${removedNodes.length} pending nodes`)
 
     let remain = pendingRemoveNodes.length
-
-    state.log(`removing ${remain} pending nodes`)
 
     for (const node of removedNodes) {
       state.debug('removed node:', node, 'remain:', --remain)
