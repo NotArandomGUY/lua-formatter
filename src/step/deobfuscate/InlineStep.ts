@@ -11,6 +11,7 @@ import LuaUnaryExpression from '@/ast/Expression/LuaUnaryExpression'
 import LuaBase, { ICodeBlock } from '@/ast/LuaBase'
 import LuaScope from '@/ast/LuaScope'
 import LuaState from '@/ast/LuaState'
+import LuaUtils from '@/ast/LuaUtils'
 import LuaElseifClause from '@/ast/Node/LuaElseifClause'
 import LuaExpression from '@/ast/Node/LuaExpression'
 import LuaIfClause from '@/ast/Node/LuaIfClause'
@@ -93,27 +94,6 @@ export default class InlineStep extends Step<{}> {
     }
 
     return statementScope.isChild(scope)
-  }
-
-  private isWithinLoop(srcScope: LuaScope, dstScope: LuaScope): boolean {
-    if (!srcScope.isChild(dstScope)) return false
-
-    let curScope: LuaScope | null = dstScope
-
-    while (curScope != null && curScope !== srcScope) {
-      const curNode = curScope.node
-
-      if (
-        curNode instanceof LuaForGenericStatement ||
-        curNode instanceof LuaForNumericStatement ||
-        curNode instanceof LuaRepeatStatement ||
-        curNode instanceof LuaWhileStatement
-      ) return true
-
-      curScope = curScope.parent
-    }
-
-    return false
   }
 
   private isStatementAwaitInline(statement: LuaStatement): boolean {
@@ -326,7 +306,7 @@ export default class InlineStep extends Step<{}> {
     const statement = state.getLastStatement(identifier)
 
     // Avoid resolve in loop statement
-    if (statement != null && this.isWithinLoop(statement.scope, scope)) return identifier
+    if (statement != null && LuaUtils.isWithinLoop(statement.scope, scope)) return identifier
 
     // Check if assign statement has exactly 1 variables
     if (

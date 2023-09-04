@@ -3,6 +3,7 @@ import LuaIdentifier from '@/ast/Expression/LuaIdentifier'
 import LuaBase, { ICodeBlock } from '@/ast/LuaBase'
 import LuaScope from '@/ast/LuaScope'
 import LuaState from '@/ast/LuaState'
+import LuaUtils from '@/ast/LuaUtils'
 import LuaAssignmentStatement from '@/ast/Statement/LuaAssignmentStatement'
 import LuaForGenericStatement from '@/ast/Statement/LuaForGenericStatement'
 import LuaForNumericStatement from '@/ast/Statement/LuaForNumericStatement'
@@ -36,27 +37,31 @@ export default class StripDeadCodeStep extends Step<{}> {
 
       const isGlobal = state.isGlobal(identifier)
       const refCount = scope.getReferenceCount(identifier)
-      const statement = scope.getLastStatement(identifier)
+      const firstStatement = scope.getFirstStatement(identifier)
+      const lastStatement = scope.getLastStatement(identifier)
 
       // Dead code condition: not global & no reference & has statement
-      if (isGlobal || refCount > 0 || statement == null) continue
+      if (isGlobal || refCount > 0 || firstStatement == null || lastStatement == null) continue
+
+      // Check if last statement is within loop sice first statement
+      if (LuaUtils.isWithinLoop(firstStatement.scope, lastStatement.scope)) continue
 
       // Check if statement type is valid
       if (
-        statement instanceof LuaForGenericStatement ||
-        statement instanceof LuaForNumericStatement ||
-        statement instanceof LuaFunctionDeclaration
+        lastStatement instanceof LuaForGenericStatement ||
+        lastStatement instanceof LuaForNumericStatement ||
+        lastStatement instanceof LuaFunctionDeclaration
       ) continue
 
       // Ignore assign statement if it has more than one variable
-      if (statement instanceof LuaAssignmentStatement && statement.variables.length > 1) continue
+      if (lastStatement instanceof LuaAssignmentStatement && lastStatement.variables.length > 1) continue
 
       // Ignore local statement if it has more than one variable with reference
-      if (statement instanceof LuaLocalStatement && this.stripLocalStatement(statement, scope, state)) continue
+      if (lastStatement instanceof LuaLocalStatement && this.stripLocalStatement(lastStatement, scope, state)) continue
 
-      state.log('found dead code, key:', identifier, 'data:', statement)
+      state.log('found dead code, key:', identifier, 'data:', lastStatement)
 
-      this.removeNode(state, statement)
+      this.removeNode(state, lastStatement)
 
       // Loop until no more nodes need to be removed
       this.iteration = 1
