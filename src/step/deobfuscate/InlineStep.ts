@@ -237,7 +237,9 @@ export default class InlineStep extends Step<{}> {
     }
   }
 
-  private resolveInline<T extends LuaBase | null>(node: LuaBase, identifier: T, state: LuaState, filter: (typeof LuaBase<any>)[]): T {
+  private resolveInline<T extends LuaBase | null>(node: LuaBase, identifier: T, state: LuaState, filter: (typeof LuaBase<any>)[], ignoreLoop: boolean): T {
+    const { scope } = node
+
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
 
@@ -255,6 +257,9 @@ export default class InlineStep extends Step<{}> {
 
     // Get assign statement
     const statement = state.getLastStatement(identifier)
+
+    // Avoid resolve in loop statement unless ignored
+    if (!ignoreLoop && statement != null && LuaUtils.isWithinLoop(statement.scope, scope)) return identifier
 
     // Check if assign statement has exactly 1 variables
     if (
@@ -334,7 +339,7 @@ export default class InlineStep extends Step<{}> {
   }
 
   private visitConditionStatement(node: LuaElseifClause | LuaIfClause | LuaRepeatStatement | LuaWhileStatement, state: LuaState): void {
-    node.condition = this.resolveInline(node, node.condition, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.condition = this.resolveInline(node, node.condition, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
   }
 
   private visitPreAssignmentStatement(node: LuaAssignmentStatement, state: LuaState): void {
@@ -342,7 +347,7 @@ export default class InlineStep extends Step<{}> {
 
     for (let i = 0; i < variables.length; i++) {
       const varName = variables[i]
-      const varInit = this.resolveInline(node, init[i], state, [])
+      const varInit = this.resolveInline(node, init[i], state, [], false)
 
       if (init[i] !== varInit) init[i] = varInit
 
@@ -353,19 +358,19 @@ export default class InlineStep extends Step<{}> {
   private visitPreBinaryExpression(node: LuaBinaryExpression, state: LuaState): void {
     const { left, right } = node
 
-    node.left = this.resolveInline(node, left, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
-    node.right = this.resolveInline(node, right, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.left = this.resolveInline(node, left, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
+    node.right = this.resolveInline(node, right, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
   }
 
   private visitPreCallExpression(node: LuaCallExpression, state: LuaState): void {
     const { base, arguments: args } = node
 
-    node.base = this.resolveInline(node, base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.base = this.resolveInline(node, base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
 
     this.resolveIdentifiers(args, state)
 
     for (let i = 0; i < args.length; i++) {
-      args[i] = this.resolveInline(node, args[i], state, [])
+      args[i] = this.resolveInline(node, args[i], state, [], false)
     }
   }
 
@@ -378,9 +383,9 @@ export default class InlineStep extends Step<{}> {
   private visitPreForNumericStatement(node: LuaForNumericStatement, state: LuaState): void {
     const { start, end, step } = node
 
-    node.start = this.resolveInline(node, start, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
-    node.end = this.resolveInline(node, end, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
-    node.step = this.resolveInline(node, step, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.start = this.resolveInline(node, start, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], true)
+    node.end = this.resolveInline(node, end, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], true)
+    node.step = this.resolveInline(node, step, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], true)
   }
 
   private visitPreFunctionDeclaration(node: LuaFunctionDeclaration, state: LuaState): void {
@@ -416,35 +421,35 @@ export default class InlineStep extends Step<{}> {
   private visitPreIndexExpression(node: LuaIndexExpression, state: LuaState): void {
     const { base, index } = node
 
-    node.base = this.resolveInline(node, base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
-    node.index = this.resolveInline(node, index, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.base = this.resolveInline(node, base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
+    node.index = this.resolveInline(node, index, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
   }
 
   private visitPreBaseExpression(node: LuaMemberExpression | LuaStringCallExpression | LuaTableCallExpression, state: LuaState): void {
-    node.base = this.resolveInline(node, node.base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.base = this.resolveInline(node, node.base, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
   }
 
   private visitPreReturnStatement(node: LuaReturnStatement, state: LuaState): void {
     const { arguments: args } = node
 
     for (let i = 0; i < args.length; i++) {
-      args[i] = this.resolveInline(node, args[i], state, [])
+      args[i] = this.resolveInline(node, args[i], state, [], false)
     }
   }
 
   private visitPreTableKey(node: LuaTableKey, state: LuaState): void {
     const { key, value } = node
 
-    node.key = this.resolveInline(node, key, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
-    node.value = this.resolveInline(node, value, state, [])
+    node.key = this.resolveInline(node, key, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
+    node.value = this.resolveInline(node, value, state, [], false)
   }
 
   private visitPreTableValue(node: LuaTableKeyString | LuaTableValue, state: LuaState): void {
-    node.value = this.resolveInline(node, node.value, state, [])
+    node.value = this.resolveInline(node, node.value, state, [], false)
   }
 
   private visitPreUnaryExpression(node: LuaUnaryExpression, state: LuaState): void {
-    node.argument = this.resolveInline(node, node.argument, state, [LuaFunctionDeclaration, LuaTableConstructorExpression])
+    node.argument = this.resolveInline(node, node.argument, state, [LuaFunctionDeclaration, LuaTableConstructorExpression], false)
   }
 
   private reassignBinaryExpression(node: LuaBinaryExpression, variable: LuaIdentifier, state: LuaState): void {
