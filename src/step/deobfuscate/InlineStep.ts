@@ -432,6 +432,8 @@ export default class InlineStep extends Step<{}> {
   private visitPreReturnStatement(node: LuaReturnStatement, state: LuaState): void {
     const { arguments: args } = node
 
+    this.resolveIdentifiers(args, state)
+
     for (let i = 0; i < args.length; i++) {
       args[i] = this.resolveInline(node, args[i], state, [], false)
     }
