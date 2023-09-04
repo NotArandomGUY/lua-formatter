@@ -182,7 +182,7 @@ export default class LuaBinaryExpression extends LuaExpression<'BinaryExpression
     if (left == null) throw new Error('Invalid left expression')
     if (right == null) throw new Error('Invalid right expression')
 
-    return `${left.toString()} ${LuaBinaryExpression.opToStr(operator)} ${right.toString()}`
+    return `(${left.toString()} ${LuaBinaryExpression.opToStr(operator)} ${right.toString()})`
   }
 
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
