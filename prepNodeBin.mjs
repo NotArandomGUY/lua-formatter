@@ -7,7 +7,7 @@ import { Data, NtExecutable, NtExecutableResource, Resource } from 'resedit'
 function download(url, dest) {
   return new Promise((resolve, reject) => {
     access(dest, constants.F_OK, (accessErr) => {
-      if (accessErr === null) return reject('File already exists')
+      if (accessErr === null) return reject(new Error('file already exists'))
 
       const request = get(url, response => {
         if (response.statusCode === 200) {
@@ -16,7 +16,7 @@ function download(url, dest) {
           file.on('finish', () => resolve())
           file.on('error', err => {
             file.close()
-            if (err.code === 'EEXIST') reject('File already exists')
+            if (err.code === 'EEXIST') reject(new Error('file already exists'))
             else unlink(dest, () => reject(err.message)) // Delete temp file
           })
 
@@ -24,7 +24,7 @@ function download(url, dest) {
         } else if (response.statusCode === 302 || response.statusCode === 301) {
           download(response.headers.location, dest).then(() => resolve())
         } else {
-          reject(`Server responded with ${response.statusCode}: ${response.statusMessage}`)
+          reject(new Error(`server responded with ${response.statusCode}: ${response.statusMessage}`))
         }
       })
 
@@ -64,11 +64,11 @@ function checkExistingBuild(builtPath, versionSegments) {
   const builtVersion = builtViList[0].getStringValues({ lang: 1033, codepage: 1200 })?.['FileVersion']
 
   if (buildVersion === builtVersion) {
-    console.log('Using existing build')
+    console.log('using existing build')
     return true
   }
 
-  console.log('Version changed, rebuilding...')
+  console.log('version changed, rebuilding...')
   return false
 }
 
@@ -81,12 +81,12 @@ export default async () => { // NOSONAR
     const versionSegments = `${packageConfig.version.replace('-', '.')}`.split('.').map(v => parseInt(v))
     while (versionSegments.length < 4) versionSegments.push(0)
 
-    console.log('Target:', nodeVersion, os)
+    console.log('target:', nodeVersion, os)
 
     if (os === 'win' && checkExistingBuild(builtPath, versionSegments)) continue
 
     if (!existsSync(fetchedPath)) {
-      console.log('Downloading file...')
+      console.log('downloading file...')
 
       // attemp to create directory
       try { mkdirSync(cachePath, { recursive: true }) } catch (e) { console.error(e) }
@@ -98,18 +98,18 @@ export default async () => { // NOSONAR
         console.error(e)
         process.exit(1)
       }
-      console.log('Downloaded file.')
+      console.log('downloaded file.')
     } else {
-      console.log('Using existing file')
+      console.log('using existing file')
     }
 
     if (os !== 'win') {
-      console.log('Not EXE, Skip')
+      console.log('not EXE, skip')
       writeFileSync(builtPath, readFileSync(fetchedPath))
       return
     }
 
-    console.log('Reading EXE')
+    console.log('reading EXE')
 
     const exe = NtExecutable.from(readFileSync(fetchedPath))
     const res = NtExecutableResource.from(exe)
@@ -119,17 +119,17 @@ export default async () => { // NOSONAR
 
     console.log(vi.data.strings)
 
-    console.log('Removing OriginalFilename')
+    console.log('removing OriginalFilename')
     vi.removeStringValue({ lang: 1033, codepage: 1200 }, 'OriginalFilename')
-    console.log('Removing InternalName')
+    console.log('removing InternalName')
     vi.removeStringValue({ lang: 1033, codepage: 1200 }, 'InternalName')
 
-    console.log('Setting Product Version')
+    console.log('setting Product Version')
     vi.setProductVersion(versionSegments[0], versionSegments[1], versionSegments[2], versionSegments[3], 1033)
-    console.log('Setting File Version')
+    console.log('setting File Version')
     vi.setFileVersion(versionSegments[0], versionSegments[1], versionSegments[2], versionSegments[3], 1033)
 
-    console.log('Setting File Info')
+    console.log('setting File Info')
     vi.setStringValues(
       { lang: 1033, codepage: 1200 },
       {
@@ -142,7 +142,7 @@ export default async () => { // NOSONAR
     console.log(vi.data.strings)
     vi.outputToResourceEntries(res.entries)
 
-    console.log('Replacing Icon')
+    console.log('replacing Icon')
     const iconFile = Data.IconFile.from(readFileSync(join(cwd(), 'appIcon.ico')))
     Resource.IconGroupEntry.replaceIconsForResource(
       res.entries,
@@ -152,10 +152,10 @@ export default async () => { // NOSONAR
     )
     res.outputResource(exe)
 
-    console.log('Generating EXE')
+    console.log('generating EXE')
     const newBinary = exe.generate()
 
-    console.log('Saving EXE')
+    console.log('saving EXE')
     writeFileSync(builtPath, Buffer.from(newBinary))
   }
 }
