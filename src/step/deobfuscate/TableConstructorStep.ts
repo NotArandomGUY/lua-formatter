@@ -1,4 +1,5 @@
 import LuaBooleanLiteral from '@/ast/Expression/LuaBooleanLiteral'
+import LuaCallExpression from '@/ast/Expression/LuaCallExpression'
 import LuaIdentifier from '@/ast/Expression/LuaIdentifier'
 import LuaIndexExpression from '@/ast/Expression/LuaIndexExpression'
 import LuaMemberExpression from '@/ast/Expression/LuaMemberExpression'
@@ -35,13 +36,19 @@ export default class TableConstructorStep extends Step<{}> {
 
     const { statement, table } = tableInfo
 
-    // Check if value is identifier and table has reference to it
+    // Check if table has reference to variable init
     if (varInit instanceof LuaIdentifier && table.hasReference(varInit)) {
       const readRefCount = state.getStorage(varInit, false)?.getReadRefCount() ?? 0
 
       // Prevent merging to table constructor if value was reassigned
       // FIXME: maybe ref count is not the best way to do this
       if (readRefCount === 0) return null
+    } else if (varInit instanceof LuaCallExpression) {
+      const identifiers = [varInit.base, ...varInit.arguments].filter(e => e instanceof LuaIdentifier) as LuaIdentifier[]
+      const reassignedIdentifier = identifiers.find(i => table.hasReference(i) && (state.getStorage(i, false)?.getReadRefCount() ?? 0) === 0)
+
+      // Prevent merging to table constructor if any value was reassigned
+      if (reassignedIdentifier != null) return null
     }
 
     if (varName instanceof LuaIndexExpression) {
