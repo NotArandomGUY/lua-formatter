@@ -19,9 +19,10 @@ async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number)
   maxIteration = Math.max(32, maxIteration)
 
   switch (mode) {
-    case 'obfuscate': {
+    case 'read':
       return 0
-    }
+    case 'obfuscate':
+      throw new Error('Mode not implemented')
     case 'deobfuscate': {
       let isChanged = false
       do {
@@ -140,7 +141,7 @@ async function main(argv: string[]): Promise<number> {
 
   const mode = argv[2]
   const srcPath = argv[3]
-  const dstPath = argv[4] ?? srcPath.replace(/(\.lua$|\.luac$|$)/, '.ast.lua')
+  const dstPath = argv[4] ?? srcPath.replace(/(\.lua$|\.luac$|$)/, `.${mode}.lua`)
 
   const reader = new FileReader(srcPath)
 
