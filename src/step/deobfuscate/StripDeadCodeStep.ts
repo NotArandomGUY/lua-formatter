@@ -90,7 +90,12 @@ export default class StripDeadCodeStep extends Step<{}> {
   private stripLocalStatement(node: LuaLocalStatement, scope: LuaScope, state: LuaState): boolean {
     const { variables } = node
 
-    const removeVariables = variables.filter(v => (scope.getStorage(v)?.getReadRefCount() ?? 0) === 0)
+    const removeVariables = variables.filter(v => {
+      const storage = scope.getStorage(v)
+      if (storage == null) return true
+
+      return storage.getWriteRefCount() <= 1 && storage.getReadRefCount() === 0
+    })
 
     // Check if all variables will be stripped
     if (variables.length === removeVariables.length) return false
