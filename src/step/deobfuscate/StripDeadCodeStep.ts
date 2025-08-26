@@ -15,17 +15,17 @@ export default class StripDeadCodeStep extends Step<{}> {
     super(config)
   }
 
-  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected override preVisit(node: LuaBase, state: LuaState): LuaBase | null {
     if (node instanceof LuaAssignmentStatement) this.visitPreAssignmentStatement(node, state)
 
     return null
   }
 
-  protected postVisit(): LuaBase | null {
+  protected override postVisit(): LuaBase | null {
     return null
   }
 
-  protected postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
+  protected override postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
     const { scope } = node
 
     const keys = scope.getKeys()

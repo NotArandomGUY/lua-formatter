@@ -37,7 +37,7 @@ export default class InlineStep extends Step<{}> {
     this.inlineNodes = []
   }
 
-  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null { // NOSONAR
+  protected override preVisit(node: LuaBase, state: LuaState): LuaBase | null { // NOSONAR
     if (node instanceof LuaAssignmentStatement) this.visitPreAssignmentStatement(node, state)
     else if (node instanceof LuaBinaryExpression) this.visitPreBinaryExpression(node, state)
     else if (node instanceof LuaCallExpression) this.visitPreCallExpression(node, state)
@@ -60,13 +60,13 @@ export default class InlineStep extends Step<{}> {
     return null
   }
 
-  protected postVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected override postVisit(node: LuaBase, state: LuaState): LuaBase | null {
     if (node instanceof LuaRepeatStatement) this.visitConditionStatement(node, state)
 
     return null
   }
 
-  protected postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
+  protected override postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
     const { scope } = node
 
     const keys = scope.getKeys()

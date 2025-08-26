@@ -12,7 +12,7 @@ export default class FixupFunctionNameStep extends Step<{}> {
     super(config)
   }
 
-  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected override preVisit(node: LuaBase, state: LuaState): LuaBase | null {
     // Check if type is valid
     if (
       !(node instanceof LuaAssignmentStatement) &&
@@ -45,11 +45,11 @@ export default class FixupFunctionNameStep extends Step<{}> {
     return varInit.clone(scope)
   }
 
-  protected postVisit(): LuaBase | null {
+  protected override postVisit(): LuaBase | null {
     return null
   }
 
-  protected postVisitBlock(): LuaBase[] | null {
+  protected override postVisitBlock(): LuaBase[] | null {
     return null
   }
 }

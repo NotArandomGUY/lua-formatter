@@ -17,7 +17,7 @@ export default class TableConstructorStep extends Step<{}> {
     super(config)
   }
 
-  protected preVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected override preVisit(node: LuaBase, state: LuaState): LuaBase | null {
     // Only visit assignment statement
     if (!(node instanceof LuaAssignmentStatement)) return null
 
@@ -75,11 +75,11 @@ export default class TableConstructorStep extends Step<{}> {
     return statement
   }
 
-  protected postVisit(node: LuaBase, state: LuaState): LuaBase | null {
+  protected override postVisit(node: LuaBase, state: LuaState): LuaBase | null {
     return null
   }
 
-  protected postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
+  protected override postVisitBlock(node: LuaBase & ICodeBlock, state: LuaState): LuaBase[] | null {
     return null
   }
 
