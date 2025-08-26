@@ -1,6 +1,7 @@
 import LuaIdentifier from './Expression/LuaIdentifier'
 import LuaBase from './LuaBase'
 import LuaScope from './LuaScope'
+import LuaStorage from './LuaStorage'
 
 const IS_DEBUG = process.env['LUA_FMT_DEBUG'] === '1'
 
@@ -51,7 +52,6 @@ export default class LuaState {
     this.scope.clear()
 
     const scope = this.stack.pop()
-
     if (scope == null) return
 
     this.scope = scope
@@ -107,131 +107,57 @@ export default class LuaState {
     return keys.filter((k, i) => keys.indexOf(k) === i)
   }
 
-  public getReferenceCount(identifier: LuaIdentifier): number {
+  public getStorage(identifier: LuaIdentifier, isAutoAlloc: true, debugCallback?: (id: string) => void): LuaStorage
+  public getStorage(identifier: LuaIdentifier, isAutoAlloc: false, debugCallback?: (id: string) => void): LuaStorage | null
+  public getStorage(identifier: LuaIdentifier, isAutoAlloc: boolean, debugCallback?: (id: string) => void): LuaStorage | null {
     const { scope, stack, globalScope } = this
 
+    let storage: LuaStorage | null
+
     // Current scope
-    if (scope.isAllocated(identifier)) return scope.getReferenceCount(identifier)
+    storage = scope.getStorage(identifier)
+    if (storage != null) {
+      debugCallback?.(`current.${stack.length}`)
+      return storage
+    }
 
     // Parent scope
     for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
+      storage = stack[i].getStorage(identifier)
+      if (storage == null) continue
 
-      if (stackScope.isAllocated(identifier)) return stackScope.getReferenceCount(identifier)
+      debugCallback?.(`stack.${i}`)
+      return storage
     }
 
     // Global scope
-    if (!globalScope.isAllocated(identifier)) return 0
+    storage = globalScope.getStorage(identifier)
+    if (storage == null) {
+      if (!isAutoAlloc) return null
 
-    return globalScope.getReferenceCount(identifier)
-  }
+      globalScope.alloc(identifier)
 
-  public getLastReference(identifier: LuaIdentifier): LuaBase | null {
-    const { scope, stack, globalScope } = this
-
-    // Current scope
-    if (scope.isAllocated(identifier)) return scope.getLastReference(identifier)
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return stackScope.getLastReference(identifier)
+      storage = globalScope.getStorage(identifier)
+      if (storage == null) throw new Error('failed to allocate storage to global scope')
     }
 
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) return null
-
-    return globalScope.getLastReference(identifier)
-  }
-
-  public getFirstStatement(identifier: LuaIdentifier): LuaBase | null {
-    const { scope, stack, globalScope } = this
-
-    // Current scope
-    if (scope.isAllocated(identifier)) return scope.getFirstStatement(identifier)
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return stackScope.getFirstStatement(identifier)
-    }
-
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) return null
-
-    return globalScope.getFirstStatement(identifier)
-  }
-
-  public getLastStatement(identifier: LuaIdentifier): LuaBase | null {
-    const { scope, stack, globalScope } = this
-
-    // Current scope
-    if (scope.isAllocated(identifier)) return scope.getLastStatement(identifier)
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return stackScope.getLastStatement(identifier)
-    }
-
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) return null
-
-    return globalScope.getLastStatement(identifier)
-  }
-
-  public isAllocated(identifier: LuaIdentifier): boolean {
-    const { scope, stack, globalScope } = this
-
-    // Check if allocated at current scope
-    if (scope.isAllocated(identifier)) return true
-
-    // Check if allocated at parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return true
-    }
-
-    // Check if allocated at global scope
-    return globalScope.isAllocated(identifier)
+    debugCallback?.('global')
+    return storage
   }
 
   public isGlobal(identifier: LuaIdentifier): boolean {
     const { scope, stack } = this
 
     // Check if allocated at current scope
-    if (scope.isAllocated(identifier)) return false
+    if (scope.getStorage(identifier) != null) return false
 
     // Check if allocated at parent scope
     for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return false
+      if (stack[i].getStorage(identifier) != null) return false
     }
 
     // Not allocated at current/parent scope, must be at global scope
     return true
-  }
-
-  public isUnknown(identifier: LuaIdentifier): boolean {
-    const { scope, stack, globalScope } = this
-
-    // Current scope
-    if (scope.isAllocated(identifier)) return scope.isUnknown(identifier)
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) return stackScope.isUnknown(identifier)
-    }
-
-    // Global scope
-    return globalScope.isUnknown(identifier)
   }
 
   public alloc(identifier: LuaIdentifier, isUnknown = false, statement?: LuaBase): boolean {
@@ -239,55 +165,15 @@ export default class LuaState {
   }
 
   public read<T extends LuaBase = LuaBase>(identifier: LuaIdentifier, statement?: LuaBase): T {
-    const { scope, stack, globalScope } = this
+    const storage = this.getStorage(identifier, true, (id) => this.debug(`read from scope[${id}]:`, identifier, 'statement:', statement))
 
-    // Current scope
-    if (scope.isAllocated(identifier)) {
-      this.debug(`read from current scope[${stack.length}]:`, identifier, 'statement:', statement)
-      return scope.read(identifier, statement)!
-    }
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) {
-        this.debug(`read from stack scope[${i}]:`, identifier, 'statement:', statement)
-        return stackScope.read(identifier, statement)!
-      }
-    }
-
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) globalScope.alloc(identifier)
-
-    this.debug('read from global scope:', identifier, 'statement:', statement)
-    return globalScope.read(identifier, statement)!
+    return storage.read(statement)!
   }
 
-  public write(identifier: LuaIdentifier, data: LuaBase | null, statement?: LuaBase): boolean {
-    const { scope, stack, globalScope } = this
+  public write(identifier: LuaIdentifier, value: LuaBase | null, statement?: LuaBase): boolean {
+    const storage = this.getStorage(identifier, true, (id) => this.debug(`write to scope[${id}]:`, identifier, 'value:', value, 'statement:', statement))
 
-    // Current scope
-    if (scope.isAllocated(identifier)) {
-      this.debug(`write to current scope[${stack.length}]:`, identifier, 'data:', data)
-      return scope.write(identifier, data, statement)
-    }
-
-    // Parent scope
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const stackScope = stack[i]
-
-      if (stackScope.isAllocated(identifier)) {
-        this.debug(`write to stack scope[${i}]:`, identifier, 'data:', data)
-        return stackScope.write(identifier, data, statement)
-      }
-    }
-
-    // Global scope
-    if (!globalScope.isAllocated(identifier)) globalScope.alloc(identifier, true, statement)
-
-    this.debug('write to global scope:', identifier, 'data:', data)
-    return globalScope.write(identifier, data, statement)
+    return storage.write(value, statement)
   }
 
   public log(msg: string, ...args: any[]): void {

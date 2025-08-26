@@ -83,8 +83,7 @@ export default class InlineStep extends Step<{}> {
   }
 
   private isScopeValid(scope: LuaScope, identifier: LuaIdentifier, state: LuaState): boolean {
-    const statement = state.getLastStatement(identifier) ?? null
-
+    const statement = state.getStorage(identifier, false)?.getLastWriteRef() ?? null
     if (statement == null) return true
 
     let statementScope = statement.scope
@@ -115,7 +114,6 @@ export default class InlineStep extends Step<{}> {
     const { inlineNodes } = this
 
     const info = inlineNodes.find(i => i[0] === node && i[1] === statement)
-
     if (info == null) return false
 
     state.debug('consume inline node:', node, 'statement:', statement)
@@ -128,54 +126,68 @@ export default class InlineStep extends Step<{}> {
   private checkIdentifierInline(identifier: LuaIdentifier, state: LuaState): void {
     const { scope } = identifier
 
+    // Get storage of identifier from identifier scope
+    const storage = scope.getStorage(identifier)
+    if (storage == null) {
+      state.debug('missing storage in identifier scope, identifier:', identifier)
+      return
+    }
+
     const isGlobal = state.isGlobal(identifier)
-    const refCount = scope.getReferenceCount(identifier)
-    const lastRef = scope.getLastReference(identifier)
-    const statement = scope.getLastStatement(identifier)
+    const readRefCount = storage.getReadRefCount()
+    const lastReadRef = storage.getLastReadRef()
+    const lastWriteRef = storage.getLastWriteRef()
 
-    // Inline condition: not global & exactly 1 reference & has last reference & has statement
-    if (isGlobal || refCount !== 1 || lastRef == null || statement == null) {
-      state.debug('inline condition not match, identifier:', identifier, 'global:', isGlobal, 'ref:', refCount, 'lastRef:', lastRef, 'statement:', statement)
+    // Inline condition: not global & has exactly 1 read reference & has write reference
+    if (isGlobal || readRefCount !== 1 || lastReadRef == null || lastWriteRef == null) {
+      state.debug('inline condition not match, identifier:', identifier, 'global:', isGlobal, 'readRef:', readRefCount, lastReadRef, 'writeRef:', lastWriteRef)
       return
     }
 
-    // Check if statement type is local or assign statement
-    if (!(statement instanceof LuaLocalStatement) && !(statement instanceof LuaAssignmentStatement)) {
-      // Check if statement type is function declaration & scope is not within function
-      if (!(statement instanceof LuaFunctionDeclaration) || scope === statement.scope) return
+    // Check if write statement type is local or assign statement
+    if (!(lastWriteRef instanceof LuaLocalStatement) && !(lastWriteRef instanceof LuaAssignmentStatement)) {
+      // Check if write statement type is function declaration & scope is not within function
+      if (!(lastWriteRef instanceof LuaFunctionDeclaration) || scope === lastWriteRef.scope) return
 
-      state.debug('inline function, identifier:', identifier, 'global:', isGlobal, 'ref:', refCount, 'lastRef:', lastRef, 'statement:', statement)
+      state.debug('inline function, identifier:', identifier, 'global:', isGlobal, 'readRef:', readRefCount, lastReadRef, 'writeRef:', lastWriteRef)
 
-      this.addInlineNode(statement, lastRef, state)
+      this.addInlineNode(lastWriteRef, lastReadRef, state)
       return
     }
 
-    const { variables, init } = statement
+    const { variables, init } = lastWriteRef
 
-    // Ignore if statement has more than one variable or missing init
+    // Ignore if write statement has more than one variable or missing init
     if (variables.length > 1 || init.length === 0) return
 
     // Check if scope is valid
-    if (!this.isScopeValid(lastRef.scope, identifier, state)) return
+    if (!this.isScopeValid(lastReadRef.scope, identifier, state)) return
 
-    state.debug('inline assign, identifier:', identifier, 'global:', isGlobal, 'ref:', refCount, 'lastRef:', lastRef, 'statement:', statement)
+    state.debug('inline assign, identifier:', identifier, 'global:', isGlobal, 'readRef:', readRefCount, lastReadRef, 'writeRef:', lastWriteRef)
 
-    this.addInlineNode(init[0], lastRef, state)
+    this.addInlineNode(init[0], lastReadRef, state)
   }
 
   private inlinePrevIdentifier(identifier: LuaIdentifier, state: LuaState): void {
+    // Get storage of identifier from state
+    const storage = state.getStorage(identifier, false)
+    if (storage == null) {
+      state.debug('missing storage in state, identifier:', identifier)
+      return
+    }
+
     const isGlobal = state.isGlobal(identifier)
-    const refCount = state.getReferenceCount(identifier)
-    const lastRef = state.getLastReference(identifier)
-    const prevStatement = state.getLastStatement(identifier)
+    const readRefCount = storage.getReadRefCount()
+    const lastReadRef = storage.getLastReadRef()
+    const lastWriteRef = storage.getLastWriteRef()
 
-    // Add previous value as inline node if variable is reassigned with 1 reference
-    // Inline condition: not global & exactly 1 reference & has last reference & has prev statement
-    if (isGlobal || refCount !== 1 || lastRef == null || prevStatement == null) return
+    // Add previous value as inline node if variable is reassigned with exactly 1 read reference
+    // Inline condition: not global & has exactly 1 read reference & has write reference
+    if (isGlobal || readRefCount !== 1 || lastReadRef == null || lastWriteRef == null) return
 
-    // Check if statement type is local or assign statement
-    if (prevStatement instanceof LuaLocalStatement || prevStatement instanceof LuaAssignmentStatement) {
-      const { variables, init } = prevStatement
+    // Check if write statement type is local or assign statement
+    if (lastWriteRef instanceof LuaLocalStatement || lastWriteRef instanceof LuaAssignmentStatement) {
+      const { variables, init } = lastWriteRef
 
       const varName = variables[0]
       const varInit = init[0]
@@ -186,14 +198,14 @@ export default class InlineStep extends Step<{}> {
         varInit != null &&
         (!(varName instanceof LuaIdentifier) || !varInit.hasReference(varName))
       ) {
-        this.addInlineNode(varInit, lastRef, state)
+        this.addInlineNode(varInit, lastReadRef, state)
         return
       }
     }
 
-    // Check if statement type is function declaration
-    if (prevStatement instanceof LuaFunctionDeclaration) {
-      this.addInlineNode(prevStatement, lastRef, state)
+    // Check if write statement type is function declaration
+    if (lastWriteRef instanceof LuaFunctionDeclaration) {
+      this.addInlineNode(lastWriteRef, lastReadRef, state)
     }
   }
 
@@ -204,12 +216,16 @@ export default class InlineStep extends Step<{}> {
       // Check if identifier type is valid
       if (!(identifier instanceof LuaIdentifier)) continue
 
-      const statement = state.getLastStatement(identifier)
+      // Get storage of identifier from state
+      const storage = state.getStorage(identifier, false)
+      if (storage == null) continue
+
+      const lastWriteRef = storage.getLastWriteRef()
 
       // Check if identifier has statement & type is local or assign statement
-      if (!(statement instanceof LuaLocalStatement || statement instanceof LuaAssignmentStatement)) continue
+      if (!(lastWriteRef instanceof LuaLocalStatement || lastWriteRef instanceof LuaAssignmentStatement)) continue
 
-      const { variables } = statement
+      const { variables } = lastWriteRef
       const section = identifiers.slice(i, i + variables.length)
 
       // Check if statement has more than 1 variables & identifiers size is valid &
@@ -225,7 +241,7 @@ export default class InlineStep extends Step<{}> {
       if (variables.find((variable, j) => !(<LuaIdentifier>variable).isMatch(<LuaIdentifier>section[j]))) continue
 
       // Remove assign statement
-      if (!(statement instanceof LuaLocalStatement) || statement.variables.length === variables.length) this.removeNode(state, statement)
+      if (!(lastWriteRef instanceof LuaLocalStatement) || lastWriteRef.variables.length === variables.length) this.removeNode(state, lastWriteRef)
 
       // Get value of variable
       const value = state.read(identifier)
@@ -243,8 +259,12 @@ export default class InlineStep extends Step<{}> {
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
 
-    // Check if variable is global or value is unknown
-    if (state.isGlobal(identifier) || state.isUnknown(identifier)) return identifier
+    // Get storage of identifier from state
+    const storage = state.getStorage(identifier, false)
+    if (storage == null) return identifier
+
+    // Check if variable is local or value is not unknown
+    if (state.isGlobal(identifier) || storage.isUnknown()) return identifier
 
     // Get value of variable
     let value = state.read(identifier)
@@ -256,22 +276,22 @@ export default class InlineStep extends Step<{}> {
     if (!this.isScopeValid(node.scope, identifier, state)) return identifier
 
     // Get assign statement
-    const statement = state.getLastStatement(identifier)
+    const lastWriteRef = storage.getLastWriteRef()
 
     // Avoid resolve in loop statement unless ignored
-    if (!ignoreLoop && statement != null && LuaUtils.isWithinLoop(statement.scope, scope)) return identifier
+    if (!ignoreLoop && lastWriteRef != null && LuaUtils.isWithinLoop(lastWriteRef.scope, scope)) return identifier
 
     // Check if assign statement has exactly 1 variables
     if (
-      (statement instanceof LuaAssignmentStatement || statement instanceof LuaLocalStatement) &&
-      statement.variables.length !== 1
+      (lastWriteRef instanceof LuaAssignmentStatement || lastWriteRef instanceof LuaLocalStatement) &&
+      lastWriteRef.variables.length !== 1
     ) return identifier
 
     // Try to consume inline node
     if (!this.consumeInlineNode(value, node, state)) return identifier
 
     // Remove assign statement
-    if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
+    if (!(lastWriteRef instanceof LuaLocalStatement)) this.removeNode(state, lastWriteRef)
 
     state.log('resolve inline:', identifier, '->', value)
 
@@ -286,50 +306,54 @@ export default class InlineStep extends Step<{}> {
     return <T>value
   }
 
-  private resolveReassign<T extends LuaBase | null>(node: LuaBase, identifier: T, variable: LuaIdentifier, state: LuaState, filter: (typeof LuaBase<any>)[]): T {
+  private resolveReassign<T extends LuaBase | null>(node: LuaBase, identifier: T, variable: LuaIdentifier, state: LuaState, excludeTypes: (typeof LuaBase<any>)[]): T {
     const { scope } = node
 
     // Check if type is identifier
     if (!(identifier instanceof LuaIdentifier)) return identifier
 
-    // Check if value is unknown
-    if (state.isUnknown(identifier)) return identifier
+    // Get storage of identifier from state
+    const storage = state.getStorage(identifier, false)
+    if (storage == null) return identifier
+
+    // Check if value is not unknown
+    if (storage.isUnknown()) return identifier
 
     // Check if identifier is reference to variable & this is the first reference to it
-    if (!identifier.isMatch(variable) || state.getReferenceCount(identifier) > 0) return identifier
+    if (!identifier.isMatch(variable) || storage.getReadRefCount() > 0) return identifier
 
     // Get the value of the variable
     let value = state.read(identifier)
 
-    // Check if value type is valid & not waiting for inline
-    if (filter.find(type => value instanceof type) != null || this.isStatementAwaitInline(value)) return identifier
+    // Check if value type is not excluded & not waiting for inline
+    if (excludeTypes.find(type => value instanceof type) != null || this.isStatementAwaitInline(value)) return identifier
 
     // Check if scope is valid
     if (!this.isScopeValid(scope, identifier, state)) return identifier
 
     // Get assign statement
-    const statement = state.getLastStatement(identifier)
+    const lastWriteRef = storage.getLastWriteRef()
 
     // Avoid resolve in loop statement
-    if (statement != null && LuaUtils.isWithinLoop(statement.scope, scope)) return identifier
+    if (lastWriteRef != null && LuaUtils.isWithinLoop(lastWriteRef.scope, scope)) return identifier
 
     // Check if assign statement has exactly 1 variables
     if (
-      (statement instanceof LuaAssignmentStatement || statement instanceof LuaLocalStatement) &&
-      statement.variables.length !== 1
+      (lastWriteRef instanceof LuaAssignmentStatement || lastWriteRef instanceof LuaLocalStatement) &&
+      lastWriteRef.variables.length !== 1
     ) return identifier
 
     // Consume inline node if exists
     this.consumeInlineNode(value, node, state)
 
     // Remove assign statement
-    if (!(statement instanceof LuaLocalStatement)) this.removeNode(state, statement)
+    if (!(lastWriteRef instanceof LuaLocalStatement)) this.removeNode(state, lastWriteRef)
 
     state.log('resolve reassign:', identifier, '->', value)
 
     this.isChanged = true
 
-    // Clone value
+    // Clone value to scope
     value = value.clone(scope)
 
     // Strip function identifier

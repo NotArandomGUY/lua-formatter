@@ -156,7 +156,6 @@ export default class List<T> {
     }
 
     const targetNode = this.getNode(pos)
-
     if (targetNode == null) return
 
     // Insert before node at position
@@ -165,8 +164,6 @@ export default class List<T> {
 
   public remove(pos: number): T | null {
     const node = this.getNode(pos)
-
-    // Check if node exists
     if (node == null) return null
 
     // Remove node from list

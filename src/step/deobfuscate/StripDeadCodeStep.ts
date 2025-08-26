@@ -35,33 +35,37 @@ export default class StripDeadCodeStep extends Step<{}> {
 
       identifier.name = key
 
+      // Get storage of identifier from scope
+      const storage = scope.getStorage(identifier)
+      if (storage == null) continue
+
       const isGlobal = state.isGlobal(identifier)
-      const refCount = scope.getReferenceCount(identifier)
-      const firstStatement = scope.getFirstStatement(identifier)
-      const lastStatement = scope.getLastStatement(identifier)
+      const readRefCount = storage.getReadRefCount()
+      const firstWriteRef = storage.getFirstWriteRef()
+      const lastWriteRef = storage.getLastWriteRef()
 
-      // Dead code condition: not global & no reference & has statement
-      if (isGlobal || refCount > 0 || firstStatement == null || lastStatement == null) continue
+      // Dead code condition: not global & no read reference & has write reference
+      if (isGlobal || readRefCount > 0 || firstWriteRef == null || lastWriteRef == null) continue
 
-      // Check if last statement is within loop sice first statement
-      if (LuaUtils.isWithinLoop(firstStatement.scope, lastStatement.scope)) continue
+      // Check if last write statement is within loop after first write statement
+      if (LuaUtils.isWithinLoop(firstWriteRef.scope, lastWriteRef.scope)) continue
 
-      // Check if statement type is valid
+      // Check if write statement type is valid
       if (
-        lastStatement instanceof LuaForGenericStatement ||
-        lastStatement instanceof LuaForNumericStatement ||
-        lastStatement instanceof LuaFunctionDeclaration
+        lastWriteRef instanceof LuaForGenericStatement ||
+        lastWriteRef instanceof LuaForNumericStatement ||
+        lastWriteRef instanceof LuaFunctionDeclaration
       ) continue
 
       // Ignore assign statement if it has more than one variable
-      if (lastStatement instanceof LuaAssignmentStatement && lastStatement.variables.length > 1) continue
+      if (lastWriteRef instanceof LuaAssignmentStatement && lastWriteRef.variables.length > 1) continue
 
       // Ignore local statement if it has more than one variable with reference
-      if (lastStatement instanceof LuaLocalStatement && this.stripLocalStatement(lastStatement, scope, state)) continue
+      if (lastWriteRef instanceof LuaLocalStatement && this.stripLocalStatement(lastWriteRef, scope, state)) continue
 
-      state.log('found dead code, key:', identifier, 'data:', lastStatement)
+      state.log('found dead code, key:', identifier, 'data:', lastWriteRef)
 
-      this.removeNode(state, lastStatement)
+      this.removeNode(state, lastWriteRef)
 
       // Loop until no more nodes need to be removed
       this.iteration = 1
@@ -71,8 +75,7 @@ export default class StripDeadCodeStep extends Step<{}> {
   }
 
   private isScopeValid(scope: LuaScope, identifier: LuaIdentifier, state: LuaState): boolean {
-    const statement = state.getLastStatement(identifier) ?? null
-
+    const statement = state.getStorage(identifier, false)?.getLastWriteRef() ?? null
     if (statement == null) return true
 
     let statementScope = statement.scope
@@ -87,7 +90,7 @@ export default class StripDeadCodeStep extends Step<{}> {
   private stripLocalStatement(node: LuaLocalStatement, scope: LuaScope, state: LuaState): boolean {
     const { variables } = node
 
-    const removeVariables = variables.filter(v => scope.getReferenceCount(v) === 0)
+    const removeVariables = variables.filter(v => (scope.getStorage(v)?.getReadRefCount() ?? 0) === 0)
 
     // Check if all variables will be stripped
     if (variables.length === removeVariables.length) return false
@@ -111,25 +114,29 @@ export default class StripDeadCodeStep extends Step<{}> {
       // Check if variable is identifier
       if (!(varName instanceof LuaIdentifier)) continue
 
+      // Get storage of variable from state
+      const storage = state.getStorage(varName, false)
+      if (storage == null) continue
+
       const isGlobal = state.isGlobal(varName)
-      const refCount = state.getReferenceCount(varName)
-      const lastRef = state.getLastReference(varName)
-      const statement = state.getLastStatement(varName)
+      const readRefCount = storage.getReadRefCount()
+      const lastReadRef = storage.getLastReadRef()
+      const lastWriteRef = storage.getLastWriteRef()
 
-      // Check if variable is global or there are any reference to variable or missing last reference
-      if (isGlobal || refCount > 0 || lastRef == null) continue
+      // Check if variable was local and there are no read references
+      if (isGlobal || readRefCount > 0 || lastReadRef == null) continue
 
-      // Check if statement type is assign statement
-      if (!(statement instanceof LuaAssignmentStatement)) continue
+      // Check if write statement type is assign statement
+      if (!(lastWriteRef instanceof LuaAssignmentStatement)) continue
 
-      // Check if statement has more than 1 variable
-      if (statement.variables.length > 1) continue
+      // Check if assign statement has exactly 1 variable
+      if (lastWriteRef.variables.length > 1) continue
 
       // Check if scope is valid
-      if (!this.isScopeValid(lastRef.scope, varName, state)) continue
+      if (!this.isScopeValid(lastReadRef.scope, varName, state)) continue
 
-      // Remove assign statement
-      this.removeNode(state, statement)
+      // Remove previous assign statement
+      this.removeNode(state, lastWriteRef)
     }
   }
 }

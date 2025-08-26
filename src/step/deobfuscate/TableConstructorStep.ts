@@ -18,7 +18,7 @@ export default class TableConstructorStep extends Step<{}> {
   }
 
   protected preVisit(node: LuaBase, state: LuaState): LuaBase | null {
-    // Check if type is valid
+    // Only visit assignment statement
     if (!(node instanceof LuaAssignmentStatement)) return null
 
     const { scope, variables, init } = node
@@ -35,10 +35,13 @@ export default class TableConstructorStep extends Step<{}> {
 
     const { statement, table } = tableInfo
 
-    // Check if value is identifier
-    if (varInit instanceof LuaIdentifier) {
-      // Check if value is reassigned
-      if (table.hasReference(varInit) && state.getReferenceCount(varInit) === 0) return null
+    // Check if value is identifier and table has reference to it
+    if (varInit instanceof LuaIdentifier && table.hasReference(varInit)) {
+      const readRefCount = state.getStorage(varInit, false)?.getReadRefCount() ?? 0
+
+      // Prevent merging to table constructor if value was reassigned
+      // FIXME: maybe ref count is not the best way to do this
+      if (readRefCount === 0) return null
     }
 
     if (varName instanceof LuaIndexExpression) {
@@ -89,20 +92,24 @@ export default class TableConstructorStep extends Step<{}> {
     // Check if base type is identifier
     if (!(base instanceof LuaIdentifier)) return null
 
-    // Check if base has any reference
-    if (state.getReferenceCount(base) > 0) return null
+    // Get storage of base identifier from state
+    const storage = state.getStorage(base, false)
+    if (storage == null) return null
 
-    const statement = state.getLastStatement(base)
-    const value = state.read(base)
+    // Check if base has any read reference
+    if (storage.getReadRefCount() > 0) return null
 
-    // Check if statement & value type is valid
+    const lastWriteRef = storage.getLastWriteRef()
+    const value = storage.read()
+
+    // Check if write statement & value type is valid
     if (
       (
-        statement instanceof LuaAssignmentStatement ||
-        statement instanceof LuaLocalStatement
+        lastWriteRef instanceof LuaAssignmentStatement ||
+        lastWriteRef instanceof LuaLocalStatement
       ) &&
       value instanceof LuaTableConstructorExpression
-    ) return { statement, table: value }
+    ) return { statement: lastWriteRef, table: value }
 
     return null
   }

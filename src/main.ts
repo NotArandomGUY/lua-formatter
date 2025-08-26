@@ -43,8 +43,8 @@ async function processChunk(mode: string, chunk: LuaChunk, maxIteration: number)
 
 async function readLuacFile(dir: string, reader: FileReader, parser: Parser, isXorShift: boolean): Promise<number> {
   let buf = reader.readBytes(0, reader.getSize())
-
   if (buf == null) return -1
+
   if (isXorShift) buf = <Buffer>xorShiftDecode(buf, 0, true)
 
   const magic = buf.subarray(0, 4)

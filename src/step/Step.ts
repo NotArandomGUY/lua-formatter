@@ -171,12 +171,10 @@ export default abstract class Step<TConf> {
     const { pendingRemoveNodes } = this
 
     let body = this.postVisitBlock(node, state)
-
     if (pendingRemoveNodes.length === 0) return body
     if (body == null) body = node.body.toArray()
 
     const removedNodes = body.filter(n => pendingRemoveNodes.includes(n))
-
     if (removedNodes.length === 0) return body
 
     this.pendingRemoveNodes = pendingRemoveNodes.filter(n => !removedNodes.includes(n))
