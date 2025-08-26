@@ -61,9 +61,10 @@ export default class LuaStringCallExpression extends LuaExpression<'StringCallEx
   public toString(): string {
     const { base, argument } = this
 
-    console.log(base, argument)
+    if (base == null) throw new Error('Invalid base expression')
+    if (argument == null) throw new Error('Invalid argument expression')
 
-    throw new Error('Method not implemented.')
+    return `${base.toString()} ${argument.toString()}`
   }
 
   protected async visitNested(pre: PreVisitCallback, post: PostVisitCallback, postBlock: PostVisitBlockCallback, state: LuaState): Promise<void> {
