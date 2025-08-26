@@ -193,18 +193,19 @@ export default class InlineStep extends Step<{}> {
       const varInit = init[0]
 
       // Check if type is valid and init do not reference itself
-      if (
-        varName != null &&
-        varInit != null &&
-        (!(varName instanceof LuaIdentifier) || !varInit.hasReference(varName))
-      ) {
-        this.addInlineNode(varInit, lastReadRef, state)
-        return
-      }
+      if (varName == null || varInit == null || (varName instanceof LuaIdentifier && varInit.hasReference(varName))) return
+
+      // Check last read statement was not in any child function scope
+      if (LuaUtils.isWithinFunction(state.scope, lastReadRef.scope)) return
+
+      state.debug('inline prev assign, identifier:', identifier, 'global:', isGlobal, 'readRef:', readRefCount, lastReadRef, 'writeRef:', lastWriteRef)
+      this.addInlineNode(varInit, lastReadRef, state)
+      return
     }
 
     // Check if write statement type is function declaration
     if (lastWriteRef instanceof LuaFunctionDeclaration) {
+      state.debug('inline prev argument, identifier:', identifier, 'global:', isGlobal, 'readRef:', readRefCount, lastReadRef, 'writeRef:', lastWriteRef)
       this.addInlineNode(lastWriteRef, lastReadRef, state)
     }
   }
